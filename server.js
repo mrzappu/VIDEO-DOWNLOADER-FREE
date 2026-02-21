@@ -1,38 +1,29 @@
-const express = require("express");
-const path = require("path");
+
+const express = require('express');
+const bodyParser = require('body-parser');
+const path = require('path');
+
 const app = express();
+const PORT = process.env.PORT || 3000;
 
-let downloadCount = 0;
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'public')));
 
-app.use(express.json());
-app.use(express.static("public"));
-
-app.post("/get_info", (req, res) => {
-    const { url } = req.body;
+app.post('/get_info', (req, res) => {
+    const url = req.body.url;
 
     if (!url) {
-        return res.status(400).json({ error: "No URL provided" });
+        return res.json({ error: "No URL provided" });
     }
 
-    if (!url.match(/\.(mp4|webm|mov|mkv)$/i)) {
-        return res.status(400).json({ error: "Only direct video links allowed" });
-    }
-
-    downloadCount++;
-
-    const fileName = path.basename(url);
-
+    // Placeholder response (no real downloading logic)
     res.json({
-        title: fileName,
-        thumbnail: "https://via.placeholder.com/800x400.png?text=Video+Preview",
-        download_url: url,
-        total_downloads: downloadCount,
-        time: new Date().toLocaleString()
+        title: "Demo Video Title (Placeholder)",
+        thumbnail: "https://via.placeholder.com/800x450.png?text=Video+Thumbnail",
+        download_url: url
     });
 });
 
-const PORT = process.env.PORT || 10000;
-
 app.listen(PORT, () => {
-    console.log("Server running on port " + PORT);
+    console.log(`Server running on port ${PORT}`);
 });

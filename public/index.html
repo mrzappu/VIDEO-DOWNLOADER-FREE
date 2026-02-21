@@ -1,81 +1,63 @@
+
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<title>Advanced Video Tool (Node)</title>
-<script src="https://cdn.tailwindcss.com"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Video Downloader</title>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
+<body class="bg-gray-900 text-white min-h-screen flex items-center justify-center">
 
-<body class="bg-gray-900 text-white min-h-screen">
+<div class="w-full max-w-2xl p-6">
+    <h1 class="text-4xl font-bold text-center mb-6 text-red-500">Global Video Downloader</h1>
 
-<div class="max-w-2xl mx-auto p-6 space-y-6">
+    <div class="flex gap-2">
+        <input id="videoUrl" type="text" placeholder="Paste video link here..."
+            class="flex-1 p-4 rounded bg-gray-800 border border-gray-700 outline-none">
+        <button onclick="processVideo()"
+            class="bg-red-600 px-6 rounded font-bold hover:bg-red-700">START</button>
+    </div>
 
-<h1 class="text-4xl font-bold text-center text-red-500">
-Advanced Video Tool (Node.js)
-</h1>
+    <div id="loader" class="hidden mt-6 text-center text-red-400 font-bold">
+        Processing...
+    </div>
 
-<div class="bg-gray-800 p-6 rounded-xl space-y-4">
-
-<input id="videoUrl"
-placeholder="Paste direct .mp4 video link"
-class="w-full p-3 rounded bg-gray-700 outline-none">
-
-<button onclick="processVideo()"
-class="w-full bg-red-600 p-3 rounded font-bold hover:bg-red-700">
-Process Video
-</button>
-
-</div>
-
-<div id="result" class="hidden bg-gray-800 p-6 rounded-xl space-y-4">
-<img id="thumb" class="rounded">
-<h2 id="title" class="font-bold"></h2>
-<p id="time" class="text-sm text-gray-400"></p>
-<p id="stats" class="text-sm text-green-400"></p>
-
-<a id="downloadBtn"
-class="block w-full bg-green-600 p-3 rounded font-bold text-center hover:bg-green-700">
-Download Video
-</a>
-</div>
-
-<ul id="history" class="text-sm text-gray-400 space-y-2"></ul>
-
+    <div id="resultArea" class="hidden mt-6 bg-gray-800 p-4 rounded">
+        <img id="thumb" class="w-full mb-4 rounded">
+        <h3 id="videoTitle" class="font-bold mb-4"></h3>
+        <a id="downloadBtn" class="block bg-green-600 p-3 text-center rounded font-bold hover:bg-green-700">
+            DOWNLOAD
+        </a>
+    </div>
 </div>
 
 <script>
-async function processVideo(){
+async function processVideo() {
+    const url = document.getElementById('videoUrl').value;
+    if (!url) return;
 
-const url = document.getElementById("videoUrl").value;
+    document.getElementById('loader').classList.remove('hidden');
+    document.getElementById('resultArea').classList.add('hidden');
 
-if(!url){
-alert("Paste a link first!");
-return;
-}
+    const res = await fetch('/get_info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `url=${encodeURIComponent(url)}`
+    });
 
-const res = await fetch("/get_info",{
-method:"POST",
-headers:{"Content-Type":"application/json"},
-body:JSON.stringify({url})
-});
+    const data = await res.json();
 
-const data = await res.json();
+    document.getElementById('loader').classList.add('hidden');
 
-if(data.error){
-alert(data.error);
-return;
-}
-
-document.getElementById("result").classList.remove("hidden");
-document.getElementById("thumb").src = data.thumbnail;
-document.getElementById("title").innerText = data.title;
-document.getElementById("time").innerText = "Processed at: " + data.time;
-document.getElementById("stats").innerText = "Total Downloads: " + data.total_downloads;
-document.getElementById("downloadBtn").href = data.download_url;
-
-const li = document.createElement("li");
-li.innerText = data.title + " (" + data.time + ")";
-document.getElementById("history").prepend(li);
+    if (data.download_url) {
+        document.getElementById('resultArea').classList.remove('hidden');
+        document.getElementById('thumb').src = data.thumbnail;
+        document.getElementById('videoTitle').innerText = data.title;
+        document.getElementById('downloadBtn').href = data.download_url;
+    } else {
+        alert("Error processing video.");
+    }
 }
 </script>
 

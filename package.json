@@ -2,10 +2,10 @@
   "name": "youtube-direct-downloader",
   "version": "3.0.0",
   "description": "Direct YouTube Downloader - No Cookies, No Sign-In Required",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js",
+    "start": "node server.js",
+    "dev": "nodemon server.js",
     "setup": "node setup.js",
     "postinstall": "node setup.js"
   },

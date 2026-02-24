@@ -1,5 +1,7 @@
-// server.js - IMPOSTER DOWNLOADER
+// server.js - IMPOSTER DOWNLOADER with Discord Integration
 require('dotenv').config();
+const config = require('./config.js');
+const DiscordLogger = require('./discordLogger.js');
 
 // ==================== DEPENDENCIES ====================
 const express = require('express');
@@ -11,26 +13,46 @@ const rateLimit = require('express-rate-limit');
 const contentDisposition = require('content-disposition');
 const mime = require('mime-types');
 const sanitize = require('sanitize-filename');
+const useragent = require('useragent');
+const requestIp = require('request-ip');
+const cookieParser = require('cookie-parser');
+const session = require('express-session');
+const axios = require('axios');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || config.server.port;
+
+// Initialize Discord Logger
+const discordLogger = new DiscordLogger();
 
 // ==================== CONFIGURATION ====================
 const TEMP_DIR = process.env.RENDER ? '/tmp/imposter-downloader' : path.join(__dirname, 'temp');
 const DOWNLOADS_DIR = path.join(__dirname, 'downloads');
+const SESSIONS_DIR = path.join(__dirname, 'sessions');
 
 // Ensure directories exist
-[TEMP_DIR, DOWNLOADS_DIR].forEach(dir => {
+[TEMP_DIR, DOWNLOADS_DIR, SESSIONS_DIR].forEach(dir => {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
 // Rate limiting map
 const rateLimitMap = new Map();
 
+// Session storage for device tracking
+const deviceSessions = new Map();
+
 // ==================== MIDDLEWARE ====================
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+app.use(requestIp.mw());
+app.use(session({
+    secret: 'imposter-secret-2026',
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 } // 24 hours
+}));
 
 // Rate limiting
 const limiter = rateLimit({
@@ -39,6 +61,48 @@ const limiter = rateLimit({
     message: { error: 'Too many requests, slow down!' }
 });
 app.use('/api/', limiter);
+
+// Device tracking middleware
+app.use(async (req, res, next) => {
+    if (config.tracking.enabled) {
+        const ip = req.clientIp;
+        const ua = req.headers['user-agent'];
+        const agent = useragent.parse(ua);
+        
+        const deviceInfo = {
+            ip: ip,
+            userAgent: ua,
+            browser: `${agent.family} ${agent.major}`,
+            os: `${agent.os.family} ${agent.os.major}`,
+            device: agent.device.family,
+            isMobile: agent.device.family === 'iPhone' || agent.device.family === 'iPad' || agent.device.family.includes('Mobile'),
+            timestamp: new Date().toISOString(),
+            path: req.path,
+            sessionId: req.session.id
+        };
+        
+        // Store in session
+        if (!req.session.deviceInfo) {
+            req.session.deviceInfo = deviceInfo;
+            deviceSessions.set(req.session.id, deviceInfo);
+            
+            // Get location data (optional)
+            let location = 'Unknown';
+            try {
+                const geoRes = await axios.get(`http://ip-api.com/json/${ip}`, { timeout: 2000 });
+                if (geoRes.data && geoRes.data.status === 'success') {
+                    location = `${geoRes.data.city}, ${geoRes.data.country}`;
+                }
+            } catch (e) {
+                // Ignore geo errors
+            }
+            
+            // Log to Discord
+            await discordLogger.logVisit(ip, ua, `${deviceInfo.device} (${deviceInfo.os})`, location);
+        }
+    }
+    next();
+});
 
 // ==================== PLATFORM DETECTION ====================
 function detectPlatform(url) {
@@ -56,7 +120,7 @@ function detectPlatform(url) {
 }
 
 // ==================== DOWNLOAD FUNCTIONS ====================
-async function downloadMedia(url, format = 'mp4', platform) {
+async function downloadMedia(url, format = 'mp4', platform, req) {
     console.log(`📥 IMPOSTER Download: ${platform} - ${url.substring(0, 50)}...`);
     
     return new Promise((resolve, reject) => {
@@ -70,10 +134,9 @@ async function downloadMedia(url, format = 'mp4', platform) {
             '--no-warnings',
             '--geo-bypass',
             '--force-ipv4',
-            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            '--user-agent', req.headers['user-agent'] || 'Mozilla/5.0'
         ];
 
-        // Platform-specific optimizations
         if (platform === 'tiktok') {
             args.push('--impersonate', 'chrome-131');
         }
@@ -100,12 +163,11 @@ async function downloadMedia(url, format = 'mp4', platform) {
         ytdlp.on('close', (code) => {
             if (code !== 0 || !fs.existsSync(tempFile)) {
                 if (platform === 'youtube' && errorOutput.includes('Sign in')) {
+                    discordLogger.logError(new Error('YouTube Blocked'), req.clientIp, url);
                     return reject(new Error('YOUTUBE_BLOCKED'));
                 }
-                if (platform === 'reddit' && errorOutput.includes('403')) {
-                    return reject(new Error('REDDIT_BLOCKED'));
-                }
-                return reject(new Error(`Download failed: ${errorOutput.substring(0, 200)}`));
+                discordLogger.logError(new Error(errorOutput), req.clientIp, url);
+                return reject(new Error(`Download failed`));
             }
 
             const stats = fs.statSync(tempFile);
@@ -115,7 +177,7 @@ async function downloadMedia(url, format = 'mp4', platform) {
             const filename = `imposter_${platform}_${Date.now()}.${format === 'mp3' ? 'mp3' : 'mp4'}`;
 
             stream.on('end', () => {
-                fs.unlink(tempFile, () => console.log('🧹 Temp file deleted'));
+                fs.unlink(tempFile, () => {});
             });
 
             resolve({ stream, filename });
@@ -125,7 +187,7 @@ async function downloadMedia(url, format = 'mp4', platform) {
 
 // ==================== WEB INTERFACE ====================
 app.get('/', (req, res) => {
-    const isRender = !!process.env.RENDER;
+    const deviceInfo = req.session.deviceInfo || {};
     
     res.send(`
         <!DOCTYPE html>
@@ -150,7 +212,7 @@ app.get('/', (req, res) => {
                     border-radius: 20px;
                     padding: 40px;
                     box-shadow: 0 20px 60px rgba(255, 0, 0, 0.3);
-                    max-width: 700px;
+                    max-width: 800px;
                     width: 100%;
                     border: 1px solid #ff0000;
                 }
@@ -167,6 +229,25 @@ app.get('/', (req, res) => {
                     color: #888; 
                     margin-bottom: 30px;
                     font-style: italic;
+                }
+                .nav-bar {
+                    display: flex;
+                    justify-content: center;
+                    gap: 20px;
+                    margin-bottom: 30px;
+                }
+                .nav-btn {
+                    background: #2a2a2a;
+                    color: white;
+                    border: 1px solid #444;
+                    padding: 10px 20px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    transition: all 0.3s;
+                }
+                .nav-btn:hover {
+                    background: #ff0000;
+                    border-color: #ff0000;
                 }
                 .warning-box {
                     background: #2a0000;
@@ -279,13 +360,89 @@ app.get('/', (req, res) => {
                     color: #ff0000;
                     font-size: 0.9em;
                 }
-                .footer span { color: #666; }
+
+                /* Modal Styles */
+                .modal {
+                    display: none;
+                    position: fixed;
+                    z-index: 1000;
+                    left: 0;
+                    top: 0;
+                    width: 100%;
+                    height: 100%;
+                    background-color: rgba(0,0,0,0.8);
+                }
+                .modal-content {
+                    background: #1a1a1a;
+                    margin: 5% auto;
+                    padding: 30px;
+                    border: 2px solid #ff0000;
+                    width: 80%;
+                    max-width: 600px;
+                    border-radius: 15px;
+                    color: white;
+                    position: relative;
+                    max-height: 80vh;
+                    overflow-y: auto;
+                }
+                .close {
+                    color: #ff0000;
+                    float: right;
+                    font-size: 28px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    position: sticky;
+                    top: 0;
+                }
+                .close:hover {
+                    color: #fff;
+                }
+                .modal h2 {
+                    color: #ff0000;
+                    margin-bottom: 20px;
+                }
+                .modal-section {
+                    margin-bottom: 25px;
+                    padding: 15px;
+                    background: #2a2a2a;
+                    border-radius: 8px;
+                }
+                .modal-section h3 {
+                    color: #ff6666;
+                    margin-bottom: 10px;
+                }
+                .device-info {
+                    font-family: monospace;
+                    background: #333;
+                    padding: 10px;
+                    border-radius: 5px;
+                    margin-top: 10px;
+                }
+                .device-info p {
+                    margin: 5px 0;
+                    color: #0f0;
+                }
+                .policy-text {
+                    max-height: 300px;
+                    overflow-y: auto;
+                    padding: 10px;
+                    background: #333;
+                    border-radius: 5px;
+                    font-size: 14px;
+                    line-height: 1.6;
+                }
             </style>
         </head>
         <body>
             <div class="container">
                 <h1>IMPOSTER</h1>
                 <div class="subtitle">DOWNLOADER</div>
+                
+                <div class="nav-bar">
+                    <button class="nav-btn" onclick="showModal('about')">👨‍💻 About Rick</button>
+                    <button class="nav-btn" onclick="showModal('privacy')">📜 Privacy Policy</button>
+                    <button class="nav-btn" onclick="showModal('device')">📱 My Device</button>
+                </div>
                 
                 <div class="warning-box">
                     <strong>⚠️ YOUTUBE NOTICE:</strong> YouTube blocks datacenter IPs. Use TikTok/Instagram/Twitter for instant downloads.
@@ -324,14 +481,94 @@ app.get('/', (req, res) => {
                     <p>✅ TikTok, Instagram, Twitter, Facebook</p>
                     <p>✅ Twitch, Vimeo, SoundCloud, 1000+ sites</p>
                     <p>⚠️ YouTube currently blocked on datacenter IPs</p>
+                    <p>🔒 Your device info is logged for security</p>
                 </div>
                 
                 <div class="footer">
                     © IMPOSTER 2026-2027
                 </div>
             </div>
-            
+
+            <!-- About Rick Modal -->
+            <div id="aboutModal" class="modal">
+                <div class="modal-content">
+                    <span class="close" onclick="closeModal('about')">&times;</span>
+                    <h2>👨‍💻 About Rick</h2>
+                    <div class="modal-section">
+                        <h3>Lead Developer</h3>
+                        <p>Rick is the mastermind behind IMPOSTER Downloader, a powerful tool that gives you access to media from 1000+ platforms.</p>
+                    </div>
+                    <div class="modal-section">
+                        <h3>Contact</h3>
+                        <p>📧 Email: rick@imposter.net</p>
+                        <p>💬 Discord: rick_imposter</p>
+                        <p>🐙 GitHub: https://github.com/rick-dev</p>
+                        <p>🌐 Website: https://imposter.net</p>
+                    </div>
+                    <div class="modal-section">
+                        <h3>Technologies Used</h3>
+                        <p>• Node.js / Express</p>
+                        <p>• yt-dlp (1000+ sites)</p>
+                        <p>• Discord.js for logging</p>
+                        <p>• ffmpeg for audio conversion</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Privacy Policy Modal -->
+            <div id="privacyModal" class="modal">
+                <div class="modal-content">
+                    <span class="close" onclick="closeModal('privacy')">&times;</span>
+                    <h2>📜 Privacy Policy</h2>
+                    <div class="modal-section">
+                        <h3>Last Updated: ${config.privacy.lastUpdated}</h3>
+                        <div class="policy-text">
+                            <p><strong>Data Collection:</strong> We collect your IP address, user agent, and device information for security and monitoring purposes.</p>
+                            <p><strong>Data Retention:</strong> ${config.privacy.dataRetention}</p>
+                            <p><strong>Discord Logging:</strong> ${config.privacy.discordSharing}</p>
+                            <p><strong>Cookies:</strong> We use session cookies to track your device during your visit.</p>
+                            <p><strong>Third Party:</strong> Download requests are processed through yt-dlp and may be visible to content platforms.</p>
+                            <p><strong>Your Rights:</strong> You can request deletion of your logs by contacting rick@imposter.net</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Device Info Modal -->
+            <div id="deviceModal" class="modal">
+                <div class="modal-content">
+                    <span class="close" onclick="closeModal('device')">&times;</span>
+                    <h2>📱 Your Device Info</h2>
+                    <div class="modal-section">
+                        <h3>What we know about you:</h3>
+                        <div class="device-info">
+                            <p>🖥️ IP: ${deviceInfo.ip || 'Collecting...'}</p>
+                            <p>🌐 Browser: ${deviceInfo.browser || 'Unknown'}</p>
+                            <p>💻 OS: ${deviceInfo.os || 'Unknown'}</p>
+                            <p>📱 Device: ${deviceInfo.device || 'Unknown'}</p>
+                            <p>📱 Mobile: ${deviceInfo.isMobile ? 'Yes' : 'No'}</p>
+                            <p>🕒 Time: ${new Date().toLocaleString()}</p>
+                        </div>
+                        <p style="margin-top: 15px; color: #ff6666;">This information is logged to Discord for security.</p>
+                    </div>
+                </div>
+            </div>
+
             <script>
+                function showModal(type) {
+                    document.getElementById(type + 'Modal').style.display = 'block';
+                }
+                
+                function closeModal(type) {
+                    document.getElementById(type + 'Modal').style.display = 'none';
+                }
+                
+                window.onclick = function(event) {
+                    if (event.target.classList.contains('modal')) {
+                        event.target.style.display = 'none';
+                    }
+                }
+
                 document.getElementById('downloadBtn').addEventListener('click', async () => {
                     const url = document.getElementById('url').value.trim();
                     const format = document.getElementById('format').value;
@@ -394,7 +631,7 @@ app.get('/api/download', async (req, res) => {
     }
 
     // Rate limiting
-    const clientIP = req.ip;
+    const clientIP = req.clientIp;
     const now = Date.now();
     const timestamps = (rateLimitMap.get(clientIP) || []).filter(t => now - t < 60000);
     
@@ -406,9 +643,20 @@ app.get('/api/download', async (req, res) => {
     rateLimitMap.set(clientIP, timestamps);
 
     const platform = detectPlatform(url);
+    const deviceInfo = req.session.deviceInfo || {};
 
     try {
-        const { stream, filename } = await downloadMedia(url, format, platform);
+        const { stream, filename } = await downloadMedia(url, format, platform, req);
+        
+        // Log successful download to Discord
+        await discordLogger.logDownload(
+            url, 
+            platform, 
+            format, 
+            clientIP,
+            `${deviceInfo.device} (${deviceInfo.os})`,
+            true
+        );
         
         res.setHeader('Content-Disposition', contentDisposition(filename));
         res.setHeader('Content-Type', format === 'mp3' ? 'audio/mpeg' : 'video/mp4');
@@ -418,6 +666,16 @@ app.get('/api/download', async (req, res) => {
         
     } catch (error) {
         console.error('Download error:', error);
+        
+        // Log failed download to Discord
+        await discordLogger.logDownload(
+            url, 
+            platform, 
+            format, 
+            clientIP,
+            `${deviceInfo.device} (${deviceInfo.os})`,
+            false
+        );
         
         if (error.message === 'YOUTUBE_BLOCKED') {
             return res.status(400).send(`
@@ -446,13 +704,20 @@ app.get('/api/download', async (req, res) => {
     }
 });
 
+// Device info API
+app.get('/api/device', (req, res) => {
+    res.json(req.session.deviceInfo || {});
+});
+
 // Health check
 app.get('/health', (req, res) => {
     res.json({
         status: 'IMPOSTER ONLINE',
-        version: '4.2.0',
+        version: config.server.version,
         copyright: 'IMPOSTER 2026-2027',
-        tempDir: TEMP_DIR
+        activeSessions: deviceSessions.size,
+        tempDir: TEMP_DIR,
+        discord: discordLogger.ready ? 'CONNECTED' : 'DISABLED'
     });
 });
 
@@ -472,6 +737,8 @@ app.listen(PORT, () => {
 ║   🌐 URL: http://localhost:${PORT}                             
 ║   🔥 WORKING: TikTok • Instagram • Twitter • Facebook                 
 ║   ⚠️ YOUTUBE: Blocked on datacenter IPs     
+║   🤖 Discord Logger: ${discordLogger.ready ? '✅ CONNECTED' : '❌ DISABLED'}
+║   👨‍💻 Developer: Rick
 ║   © IMPOSTER 2026-2027                          
 ╚══════════════════════════════════════════════════════════╝
     `);

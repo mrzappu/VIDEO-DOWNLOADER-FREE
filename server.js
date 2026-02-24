@@ -1,22 +1,21 @@
-// server.js - Fixed version without spdl
+// index.js - YouTube Direct Downloader - NO COOKIES, NO SIGN-IN
 require('dotenv').config();
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const { spawn, exec } = require('child_process');
+const { spawn } = require('child_process');
 const ytdl = require('@distube/ytdl-core');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const contentDisposition = require('content-disposition');
 const mime = require('mime-types');
 const sanitize = require('sanitize-filename');
-const axios = require('axios');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ==================== CONFIGURATION ====================
-const TEMP_DIR = process.env.RENDER ? '/tmp/downloader-temp' : path.join(__dirname, 'temp');
+const TEMP_DIR = process.env.RENDER ? '/tmp/youtube-downloader' : path.join(__dirname, 'temp');
 const DOWNLOADS_DIR = path.join(__dirname, 'downloads');
 
 // Ensure directories exist
@@ -24,99 +23,193 @@ const DOWNLOADS_DIR = path.join(__dirname, 'downloads');
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
-// Clean temp files older than 1 hour
-setInterval(() => {
-    const now = Date.now();
-    fs.readdir(TEMP_DIR, (err, files) => {
-        if (err) return;
-        files.forEach(file => {
-            const filePath = path.join(TEMP_DIR, file);
-            fs.stat(filePath, (err, stats) => {
-                if (err) return;
-                if (now - stats.mtimeMs > 3600000) {
-                    fs.unlink(filePath, () => {});
-                }
-            });
-        });
-    });
-}, 3600000);
+// Rate limiting map
+const rateLimitMap = new Map();
 
 // ==================== MIDDLEWARE ====================
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'public')));
 
 // Rate limiting
 const limiter = rateLimit({
     windowMs: 60 * 1000,
-    max: 10,
+    max: 5,
     message: { error: 'Too many requests, slow down!' }
 });
 app.use('/api/', limiter);
 
-// ==================== SPOTIFY HANDLER (FIXED - NO spdl) ====================
-const SPOTIFY_COOKIE = process.env.SPOTIFY_SP_DC;
+// ==================== USER AGENTS FOR ROTATION ====================
+const userAgents = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2.1 Safari/605.1.15',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1',
+    'Mozilla/5.0 (iPad; CPU OS 17_2_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1',
+    'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.230 Mobile Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0'
+];
 
-async function getSpotifyTrackInfo(trackId) {
-    try {
-        const response = await axios.get(`https://api.spotify.com/v1/tracks/${trackId}`, {
-            headers: {
-                'Authorization': `Bearer ${await getSpotifyToken()}`,
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
-        });
-        return response.data;
-    } catch (error) {
-        console.error('Spotify API error:', error.message);
-        return null;
-    }
+function getRandomUserAgent() {
+    return userAgents[Math.floor(Math.random() * userAgents.length)];
 }
 
-async function getSpotifyToken() {
-    // Note: This requires Spotify API credentials
-    // For now, we'll use yt-dlp for Spotify downloads
-    return null;
-}
+// ==================== CLIENT TYPES ====================
+const clients = [
+    { name: 'ANDROID', id: '3', version: '19.09.37' },
+    { name: 'IOS', id: '5', version: '19.09.3' },
+    { name: 'WEB', id: '1', version: '2.20250101.00.00' },
+    { name: 'WEB_EMBEDDED', id: '56', version: '2.20250101.00.00' }
+];
 
 // ==================== UTILITY FUNCTIONS ====================
 function sanitizeFilename(name) {
-    return sanitize(name).replace(/\s+/g, '_') || 'download';
+    return sanitize(name).replace(/\s+/g, '_').substring(0, 100) || 'video';
 }
 
-function getPlatformFromUrl(url) {
-    url = url.toLowerCase();
-    if (url.includes('youtube.com') || url.includes('youtu.be')) return 'youtube';
-    if (url.includes('spotify.com')) return 'spotify';
-    if (url.includes('tiktok.com')) return 'tiktok';
-    if (url.includes('instagram.com')) return 'instagram';
-    if (url.includes('twitter.com') || url.includes('x.com')) return 'twitter';
-    if (url.includes('facebook.com') || url.includes('fb.com')) return 'facebook';
-    if (url.includes('twitch.tv')) return 'twitch';
-    if (url.includes('vimeo.com')) return 'vimeo';
-    if (url.includes('soundcloud.com')) return 'soundcloud';
-    return 'other';
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// ==================== API ENDPOINTS ====================
+// ==================== MAIN DOWNLOAD FUNCTION ====================
+async function downloadYouTube(url, format = 'mp4', quality = 'highest') {
+    console.log(`📥 Downloading: ${url.substring(0, 50)}...`);
+    
+    // Try multiple methods in sequence
+    const methods = [
+        { name: 'ytdl-android', fn: tryYtdlWithClient('ANDROID') },
+        { name: 'ytdl-ios', fn: tryYtdlWithClient('IOS') },
+        { name: 'ytdl-web', fn: tryYtdlWithClient('WEB') },
+        { name: 'yt-dlp', fn: tryYtDlp }
+    ];
+    
+    for (const method of methods) {
+        try {
+            console.log(`🔄 Trying method: ${method.name}`);
+            const result = await method.fn(url, format, quality);
+            if (result) return result;
+        } catch (e) {
+            console.log(`❌ ${method.name} failed: ${e.message}`);
+        }
+        await delay(1000);
+    }
+    
+    throw new Error('All download methods failed');
+}
 
-// Home page
+// Method 1: ytdl-core with different clients
+function tryYtdlWithClient(clientType) {
+    return async (url, format, quality) => {
+        const client = clients.find(c => c.name === clientType) || clients[0];
+        
+        const options = {
+            requestOptions: {
+                headers: {
+                    'User-Agent': getRandomUserAgent(),
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.5',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'X-YouTube-Client-Name': client.id,
+                    'X-YouTube-Client-Version': client.version,
+                    'Origin': 'https://www.youtube.com',
+                    'Referer': 'https://www.youtube.com/'
+                }
+            },
+            playerClients: [clientType]
+        };
+        
+        const info = await ytdl.getInfo(url, options);
+        const title = sanitizeFilename(info.videoDetails.title);
+        
+        let stream;
+        let filename;
+        
+        if (format === 'mp3' || quality === 'audio') {
+            const audioFormat = ytdl.chooseFormat(info.formats, {
+                quality: 'highestaudio',
+                filter: 'audioonly'
+            });
+            filename = `${title}.mp3`;
+            stream = ytdl(url, { format: audioFormat, requestOptions: options.requestOptions });
+        } else {
+            const videoFormat = ytdl.chooseFormat(info.formats, {
+                quality: quality === 'highest' ? 'highestvideo' : quality,
+                filter: f => f.hasVideo && f.hasAudio
+            });
+            filename = `${title}.${format}`;
+            stream = ytdl(url, { format: videoFormat, requestOptions: options.requestOptions });
+        }
+        
+        return { stream, filename, title };
+    };
+}
+
+// Method 2: yt-dlp fallback
+async function tryYtDlp(url, format, quality) {
+    return new Promise((resolve, reject) => {
+        const tempFile = path.join(TEMP_DIR, `ytdlp_${Date.now()}.${format === 'mp3' ? 'mp3' : 'mp4'}`);
+        
+        const args = [
+            url,
+            '-f', format === 'mp3' ? 'bestaudio' : 'best[ext=mp4]/best',
+            '-o', tempFile,
+            '--no-playlist',
+            '--no-warnings',
+            '--extractor-args', 'youtube:player_client=android,web',
+            '--user-agent', getRandomUserAgent(),
+            '--add-header', 'Accept-Language: en-US,en;q=0.5',
+            '--geo-bypass',
+            '--force-ipv4',
+            '--sleep-requests', '1.0',
+            '--sleep-interval', '2',
+            '--max-sleep-interval', '5'
+        ];
+        
+        if (format === 'mp3') {
+            args.push('-x', '--audio-format', 'mp3');
+        }
+        
+        const ytdlp = spawn('yt-dlp', args);
+        let error = '';
+        
+        ytdlp.stderr.on('data', (data) => {
+            error += data.toString();
+        });
+        
+        ytdlp.on('close', (code) => {
+            if (code !== 0) {
+                return reject(new Error(`yt-dlp failed: ${error.substring(0, 100)}`));
+            }
+            
+            const stream = fs.createReadStream(tempFile);
+            const filename = `video_${Date.now()}.${format === 'mp3' ? 'mp3' : 'mp4'}`;
+            
+            // Clean up after streaming
+            stream.on('end', () => {
+                fs.unlink(tempFile, () => {});
+            });
+            
+            resolve({ stream, filename, title: 'YouTube Video' });
+        });
+        
+        ytdlp.on('error', reject);
+    });
+}
+
+// ==================== WEB INTERFACE ====================
 app.get('/', (req, res) => {
     res.send(`
         <!DOCTYPE html>
         <html>
         <head>
-            <title>ULTIMATE MEDIA DOWNLOADER</title>
+            <title>YouTube Direct Downloader</title>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <style>
-                * {
-                    margin: 0;
-                    padding: 0;
-                    box-sizing: border-box;
-                }
+                * { margin: 0; padding: 0; box-sizing: border-box; }
                 body {
-                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    font-family: 'Segoe UI', sans-serif;
                     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                     min-height: 100vh;
                     display: flex;
@@ -129,43 +222,20 @@ app.get('/', (req, res) => {
                     border-radius: 20px;
                     padding: 40px;
                     box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-                    max-width: 800px;
+                    max-width: 600px;
                     width: 100%;
                 }
-                h1 {
-                    color: #333;
-                    text-align: center;
-                    margin-bottom: 10px;
-                    font-size: 2.5em;
-                }
-                .subtitle {
-                    text-align: center;
-                    color: #666;
-                    margin-bottom: 30px;
-                    font-size: 1.1em;
-                }
-                .supported-sites {
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 10px;
-                    justify-content: center;
-                    margin-bottom: 30px;
-                }
-                .site-badge {
+                h1 { color: #333; text-align: center; margin-bottom: 10px; }
+                .subtitle { text-align: center; color: #666; margin-bottom: 30px; }
+                .feature-badge {
                     background: #f0f0f0;
-                    padding: 5px 15px;
-                    border-radius: 20px;
-                    font-size: 0.9em;
-                    color: #555;
+                    padding: 5px 10px;
+                    border-radius: 5px;
+                    font-size: 0.8em;
+                    display: inline-block;
+                    margin: 2px;
                 }
-                .site-badge.youtube { background: #ff0000; color: white; }
-                .site-badge.spotify { background: #1DB954; color: white; }
-                .site-badge.tiktok { background: #000000; color: white; }
-                .site-badge.instagram { background: #E4405F; color: white; }
-                
-                .input-group {
-                    margin-bottom: 20px;
-                }
+                .input-group { margin-bottom: 20px; }
                 input[type="url"] {
                     width: 100%;
                     padding: 15px;
@@ -173,35 +243,19 @@ app.get('/', (req, res) => {
                     border: 2px solid #ddd;
                     border-radius: 10px;
                     outline: none;
-                    transition: border-color 0.3s;
                 }
-                input[type="url"]:focus {
-                    border-color: #667eea;
-                }
-                
+                input[type="url"]:focus { border-color: #667eea; }
                 .options {
                     display: flex;
                     gap: 20px;
                     margin-bottom: 20px;
-                    flex-wrap: wrap;
-                }
-                .option-group {
-                    flex: 1;
-                }
-                label {
-                    display: block;
-                    margin-bottom: 5px;
-                    color: #555;
-                    font-weight: 500;
                 }
                 select {
                     width: 100%;
                     padding: 10px;
                     border: 2px solid #ddd;
                     border-radius: 8px;
-                    font-size: 14px;
                 }
-                
                 button {
                     width: 100%;
                     padding: 15px;
@@ -212,63 +266,23 @@ app.get('/', (req, res) => {
                     font-size: 18px;
                     font-weight: 600;
                     cursor: pointer;
-                    transition: transform 0.2s, box-shadow 0.2s;
                 }
-                button:hover {
-                    transform: translateY(-2px);
-                    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
-                }
-                button:disabled {
-                    opacity: 0.6;
-                    cursor: not-allowed;
-                }
-                
-                .info-section {
+                button:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4); }
+                .info {
                     margin-top: 30px;
                     padding: 20px;
                     background: #f8f9fa;
                     border-radius: 10px;
                 }
-                .info-section h3 {
-                    color: #333;
-                    margin-bottom: 10px;
-                }
-                .info-section ul {
-                    list-style: none;
-                    padding-left: 0;
-                }
-                .info-section li {
-                    padding: 5px 0;
-                    color: #666;
-                }
-                .info-section li:before {
-                    content: "✓ ";
-                    color: #28a745;
-                    font-weight: bold;
-                }
-                
                 #status {
                     margin-top: 20px;
                     padding: 15px;
                     border-radius: 8px;
                     display: none;
                 }
-                .status-success {
-                    background: #d4edda;
-                    color: #155724;
-                    border: 1px solid #c3e6cb;
-                }
-                .status-error {
-                    background: #f8d7da;
-                    color: #721c24;
-                    border: 1px solid #f5c6cb;
-                }
-                .status-info {
-                    background: #d1ecf1;
-                    color: #0c5460;
-                    border: 1px solid #bee5eb;
-                }
-                
+                .status-success { background: #d4edda; color: #155724; }
+                .status-error { background: #f8d7da; color: #721c24; }
+                .status-info { background: #d1ecf1; color: #0c5460; }
                 .progress {
                     margin-top: 20px;
                     height: 30px;
@@ -281,54 +295,38 @@ app.get('/', (req, res) => {
                     height: 100%;
                     background: linear-gradient(90deg, #667eea, #764ba2);
                     width: 0%;
-                    transition: width 0.3s;
                     color: white;
                     text-align: center;
                     line-height: 30px;
-                    font-size: 14px;
                 }
-                
-                .footer {
-                    margin-top: 30px;
-                    text-align: center;
-                    color: #888;
-                    font-size: 0.9em;
-                }
+                .footer { margin-top: 30px; text-align: center; color: #888; }
             </style>
         </head>
         <body>
             <div class="container">
-                <h1>🎵 ULTIMATE DOWNLOADER</h1>
-                <div class="subtitle">YouTube • Spotify • TikTok • Instagram • 1000+ sites</div>
+                <h1>🎬 YouTube Direct Downloader</h1>
+                <div class="subtitle">No Cookies • No Sign-In • Direct Download</div>
                 
-                <div class="supported-sites">
-                    <span class="site-badge youtube">YouTube</span>
-                    <span class="site-badge spotify">Spotify</span>
-                    <span class="site-badge tiktok">TikTok</span>
-                    <span class="site-badge instagram">Instagram</span>
-                    <span class="site-badge">Twitter/X</span>
-                    <span class="site-badge">Facebook</span>
-                    <span class="site-badge">Twitch</span>
-                    <span class="site-badge">Vimeo</span>
-                    <span class="site-badge">SoundCloud</span>
-                    <span class="site-badge">1000+ more</span>
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <span class="feature-badge">✓ 1080p</span>
+                    <span class="feature-badge">✓ 4K</span>
+                    <span class="feature-badge">✓ MP3</span>
+                    <span class="feature-badge">✓ No Login</span>
                 </div>
                 
                 <div class="input-group">
-                    <input type="url" id="url" placeholder="Paste URL here (YouTube, Spotify, TikTok, Instagram...)" required>
+                    <input type="url" id="url" placeholder="Paste YouTube URL here" required>
                 </div>
                 
                 <div class="options">
-                    <div class="option-group">
+                    <div style="flex:1">
                         <label>Format</label>
                         <select id="format">
-                            <option value="mp4">MP4 (Video)</option>
-                            <option value="mp3">MP3 (Audio)</option>
-                            <option value="m4a">M4A (Audio)</option>
-                            <option value="webm">WebM</option>
+                            <option value="mp4">MP4 Video</option>
+                            <option value="mp3">MP3 Audio</option>
                         </select>
                     </div>
-                    <div class="option-group" id="quality-group">
+                    <div style="flex:1">
                         <label>Quality</label>
                         <select id="quality">
                             <option value="highest">Highest</option>
@@ -341,25 +339,20 @@ app.get('/', (req, res) => {
                     </div>
                 </div>
                 
-                <button id="downloadBtn">⬇️ DOWNLOAD</button>
+                <button id="downloadBtn">⬇️ DOWNLOAD NOW</button>
                 
                 <div id="status"></div>
                 <div class="progress">
                     <div class="progress-bar" id="progressBar">0%</div>
                 </div>
                 
-                <div class="info-section">
-                    <h3>✨ Features</h3>
-                    <ul>
-                        <li>YouTube: All qualities up to 4K</li>
-                        <li>Spotify: High-quality MP3 with metadata</li>
-                        <li>TikTok: No watermark option</li>
-                        <li>Instagram: Videos & Reels</li>
-                        <li>Twitter/X: Native video downloads</li>
-                        <li>Facebook: Public video downloads</li>
-                        <li>No registration required</li>
-                        <li>Clean, ad-free interface</li>
-                    </ul>
+                <div class="info">
+                    <h3>✨ How it works</h3>
+                    <p>• No cookies or login required</p>
+                    <p>• Works on Render datacenter IPs</p>
+                    <p>• Multiple fallback methods</p>
+                    <p>• Auto-retry with different clients</p>
+                    <p>• Files deleted after download</p>
                 </div>
                 
                 <div class="footer">
@@ -374,38 +367,26 @@ app.get('/', (req, res) => {
                     const quality = document.getElementById('quality').value;
                     
                     if (!url) {
-                        showStatus('Please enter a URL', 'error');
+                        showStatus('Please enter a YouTube URL', 'error');
+                        return;
+                    }
+                    
+                    if (!url.includes('youtube.com') && !url.includes('youtu.be')) {
+                        showStatus('Please enter a valid YouTube URL', 'error');
                         return;
                     }
                     
                     showStatus('Processing...', 'info');
-                    showProgress(0);
+                    showProgress(30);
                     
                     try {
-                        const response = await fetch('/api/info', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ url })
-                        });
-                        
-                        const data = await response.json();
-                        
-                        if (!response.ok) {
-                            throw new Error(data.error || 'Failed to get video info');
-                        }
-                        
-                        showStatus('Starting download...', 'info');
-                        showProgress(30);
-                        
-                        // Trigger download
+                        // Trigger download via redirect
                         const downloadUrl = \`/api/download?url=\${encodeURIComponent(url)}&format=\${format}&quality=\${quality}\`;
                         window.location.href = downloadUrl;
                         
                         showStatus('Download started!', 'success');
                         showProgress(100);
-                        
                         setTimeout(() => hideStatus(), 3000);
-                        
                     } catch (error) {
                         showStatus('Error: ' + error.message, 'error');
                         hideProgress();
@@ -440,142 +421,64 @@ app.get('/', (req, res) => {
     `);
 });
 
-// API: Get video info
-app.post('/api/info', async (req, res) => {
-    const { url } = req.body;
-    
-    if (!url) {
-        return res.status(400).json({ error: 'URL required' });
-    }
-    
-    const platform = getPlatformFromUrl(url);
-    
-    try {
-        if (platform === 'youtube') {
-            const info = await ytdl.getInfo(url);
-            return res.json({
-                title: info.videoDetails.title,
-                duration: info.videoDetails.lengthSeconds,
-                thumbnail: info.videoDetails.thumbnails.pop().url,
-                formats: info.formats.map(f => ({
-                    quality: f.qualityLabel || f.quality,
-                    container: f.container,
-                    hasVideo: f.hasVideo,
-                    hasAudio: f.hasAudio
-                }))
-            });
-        } else {
-            // Generic response for other platforms
-            return res.json({
-                title: 'Media from ' + platform,
-                platform: platform,
-                duration: 0
-            });
-        }
-    } catch (error) {
-        console.error('Info error:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// API: Download media
+// ==================== API ENDPOINTS ====================
 app.get('/api/download', async (req, res) => {
-    const { url, format, quality } = req.query;
+    const { url, format = 'mp4', quality = 'highest' } = req.query;
     
     if (!url) {
         return res.status(400).send('URL required');
     }
     
-    const platform = getPlatformFromUrl(url);
-    console.log(`📥 Download request: ${platform} | ${url.substring(0, 50)}...`);
+    // Simple rate limiting
+    const clientIP = req.ip;
+    const now = Date.now();
+    const timestamps = (rateLimitMap.get(clientIP) || []).filter(t => now - t < 60000);
+    
+    if (timestamps.length > 3) {
+        return res.status(429).send('Rate limit exceeded. Try again later.');
+    }
+    
+    timestamps.push(now);
+    rateLimitMap.set(clientIP, timestamps);
     
     try {
-        // ==================== YOUTUBE DOWNLOAD ====================
-        if (platform === 'youtube') {
-            const info = await ytdl.getInfo(url);
-            const title = sanitizeFilename(info.videoDetails.title);
-            
-            let stream;
-            let filename;
-            
-            if (format === 'mp3' || quality === 'audio') {
-                // Audio only
-                const audioFormat = ytdl.chooseFormat(info.formats, { 
-                    quality: 'highestaudio',
-                    filter: 'audioonly'
-                });
-                filename = `${title}.mp3`;
-                stream = ytdl(url, { format: audioFormat });
-            } else {
-                // Video + audio
-                const videoFormat = ytdl.chooseFormat(info.formats, { 
-                    quality: quality === 'highest' ? 'highestvideo' : quality,
-                    filter: format => format.hasVideo && format.hasAudio
-                });
-                filename = `${title}.${format || 'mp4'}`;
-                stream = ytdl(url, { format: videoFormat });
-            }
-            
-            res.setHeader('Content-Disposition', contentDisposition(filename));
-            res.setHeader('Content-Type', mime.lookup(filename) || 'application/octet-stream');
-            
-            stream.pipe(res);
-            stream.on('error', (err) => {
-                console.error('Stream error:', err);
-                if (!res.headersSent) {
-                    res.status(500).send('Download failed');
-                }
-            });
-        }
+        const { stream, filename } = await downloadYouTube(url, format, quality);
         
-        // ==================== OTHER PLATFORMS (using yt-dlp) ====================
-        else {
-            // Check if yt-dlp is available
-            const tempFile = path.join(TEMP_DIR, `download_${Date.now()}.${format || 'mp4'}`);
-            
-            // Try using yt-dlp if available
-            try {
-                const args = [
-                    url,
-                    '-f', 'best[ext=mp4]/best',
-                    '-o', tempFile,
-                    '--no-playlist',
-                    '--no-warnings'
-                ];
-                
-                // Add platform-specific options
-                if (platform === 'tiktok') {
-                    args.push('--impersonate', 'chrome-131');
-                }
-                
-                const ytdlp = spawn('yt-dlp', args);
-                
-                ytdlp.on('close', (code) => {
-                    if (code !== 0) {
-                        return res.status(500).send('Download failed - try yt-dlp installation');
-                    }
-                    
-                    // Send file
-                    res.setHeader('Content-Disposition', contentDisposition(`download_${Date.now()}.${format || 'mp4'}`));
-                    res.setHeader('Content-Type', mime.lookup(format || 'mp4') || 'application/octet-stream');
-                    
-                    const stream = fs.createReadStream(tempFile);
-                    stream.pipe(res);
-                    
-                    stream.on('end', () => {
-                        fs.unlink(tempFile, () => {});
-                    });
-                });
-            } catch (e) {
-                // Fallback message
-                res.status(400).send(`Platform ${platform} requires yt-dlp. Install with: pip install yt-dlp`);
+        res.setHeader('Content-Disposition', contentDisposition(filename));
+        res.setHeader('Content-Type', format === 'mp3' ? 'audio/mpeg' : 'video/mp4');
+        
+        stream.pipe(res);
+        
+        stream.on('error', (err) => {
+            console.error('Stream error:', err);
+            if (!res.headersSent) {
+                res.status(500).send('Download failed');
             }
-        }
+        });
         
     } catch (error) {
         console.error('Download error:', error);
-        if (!res.headersSent) {
-            res.status(500).send('Error: ' + error.message);
+        
+        // Try yt-dlp as final fallback
+        try {
+            await tryYtDlp(url, format, quality).then(({ stream, filename }) => {
+                res.setHeader('Content-Disposition', contentDisposition(filename));
+                res.setHeader('Content-Type', format === 'mp3' ? 'audio/mpeg' : 'video/mp4');
+                stream.pipe(res);
+            }).catch(() => {
+                res.status(500).send(`
+                    <html>
+                    <body style="font-family: Arial; text-align: center; padding: 50px;">
+                        <h1 style="color: #ff0000;">❌ Download Failed</h1>
+                        <p>${error.message}</p>
+                        <p>Try a different video or format.</p>
+                        <a href="/" style="background: #667eea; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Go Back</a>
+                    </body>
+                    </html>
+                `);
+            });
+        } catch {
+            res.status(500).send('All download methods failed');
         }
     }
 });
@@ -585,21 +488,23 @@ app.get('/health', (req, res) => {
     res.json({
         status: 'healthy',
         uptime: process.uptime(),
-        timestamp: Date.now(),
-        tempDir: TEMP_DIR
+        tempDir: TEMP_DIR,
+        methods: ['ytdl-android', 'ytdl-ios', 'ytdl-web', 'yt-dlp']
     });
 });
 
+// ==================== START SERVER ====================
 app.listen(PORT, () => {
+    console.clear();
     console.log(`
 ╔══════════════════════════════════════════════════════════╗
-║   🚀 ULTIMATE MEDIA DOWNLOADER - RUNNING                ║
+║   🎬 YOUTUBE DIRECT DOWNLOADER - RUNNING                ║
 ╠══════════════════════════════════════════════════════════╣
 ║   📍 Port: ${PORT}                                           
 ║   🌐 URL: http://localhost:${PORT}                             
 ║   📁 Temp: ${TEMP_DIR}   
-║   🎵 Spotify: Using yt-dlp (set SPOTIFY_SP_DC in .env)                 
-║   💡 Supported: YouTube, Spotify, TikTok, Instagram+     
+║   🔥 NO COOKIES • NO SIGN-IN REQUIRED                 
+║   💡 Methods: Android • iOS • Web • yt-dlp     
 ╚══════════════════════════════════════════════════════════╝
     `);
 });

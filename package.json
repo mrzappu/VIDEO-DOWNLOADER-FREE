@@ -1,7 +1,7 @@
 {
-  "name": "universal-media-downloader",
-  "version": "4.0.0",
-  "description": "Download from YouTube, TikTok, Instagram, Twitter, Facebook, Reddit, and 1000+ sites",
+  "name": "imposter-downloader",
+  "version": "4.2.0",
+  "description": "IMPOSTER Downloader - Download from 1000+ platforms",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -26,6 +26,6 @@
     "node": "18.18.0",
     "npm": ">=9.0.0"
   },
-  "author": "Rick Ser",
+  "author": "IMPOSTER",
   "license": "MIT"
 }

@@ -1,7 +1,7 @@
 {
   "name": "imposter-downloader",
-  "version": "4.2.0",
-  "description": "IMPOSTER Downloader - Download from 1000+ platforms",
+  "version": "5.0.0",
+  "description": "IMPOSTER Downloader with Discord Login & IP Logger",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -11,13 +11,21 @@
   },
   "dependencies": {
     "express": "^4.18.2",
+    "express-session": "^1.18.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "mime-types": "^2.1.35",
     "content-disposition": "^0.5.4",
     "sanitize-filename": "^1.6.3",
     "express-rate-limit": "^6.11.2",
-    "axios": "^1.6.2"
+    "axios": "^1.6.2",
+    "discord-oauth2": "^2.0.0",
+    "passport": "^0.7.0",
+    "passport-discord": "^0.1.4",
+    "node-fetch": "^2.7.0",
+    "request-ip": "^3.3.0",
+    "useragent": "^2.3.0",
+    "geoip-lite": "^1.4.7"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

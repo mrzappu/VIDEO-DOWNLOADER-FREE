@@ -11,19 +11,20 @@
   },
   "dependencies": {
     "express": "^4.18.2",
-    "@distube/ytdl-core": "^4.13.7",
+    "@distube/ytdl-core": "4.13.5",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "mime-types": "^2.1.35",
     "content-disposition": "^0.5.4",
     "sanitize-filename": "^1.6.3",
-    "express-rate-limit": "^7.1.5"
+    "express-rate-limit": "^6.11.2",
+    "undici": "5.28.4"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
   },
   "engines": {
-    "node": ">=18.0.0",
+    "node": "18.18.0",
     "npm": ">=9.0.0"
   },
   "author": "Rick Ser",

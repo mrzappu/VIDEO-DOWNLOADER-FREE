@@ -2,7 +2,7 @@ services:
   - type: web
     name: youtube-downloader
     runtime: node
-    repo: https://github.com/YOUR_USERNAME/YOUR_REPO
+    repo: https://github.com/mrzappu/VIDEO-DOWNLOADER-FREE.git
     plan: free
     region: oregon
     buildCommand: npm install

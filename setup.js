@@ -1,14 +1,20 @@
-// setup.js - IMPOSTER Downloader Setup
+// setup.js - IMPOSTER Downloader Setup with Discord
 const { exec, execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const readline = require('readline');
 
-console.log('🚀 IMPOSTER DOWNLOADER - SETUP');
-console.log('==================================');
+const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+});
+
+console.log('🚀 IMPOSTER DOWNLOADER - DISCORD EDITION');
+console.log('==========================================');
 
 // Create directories
-const dirs = ['temp', 'downloads', 'logs'];
+const dirs = ['temp', 'downloads', 'logs', 'sessions'];
 dirs.forEach(dir => {
     const dirPath = path.join(__dirname, dir);
     if (!fs.existsSync(dirPath)) {
@@ -33,7 +39,6 @@ try {
     console.log(`✅ yt-dlp found (version ${version})`);
 } catch (error) {
     console.log('⚠️ yt-dlp not found - INSTALLING...');
-    
     try {
         if (os.platform() === 'win32') {
             console.log('Windows: Download from: https://github.com/yt-dlp/yt-dlp/releases');
@@ -71,16 +76,58 @@ try {
     }
 }
 
-// Create .env file
-const envPath = path.join(__dirname, '.env');
-if (!fs.existsSync(envPath)) {
-    const envContent = `PORT=3000
-NODE_ENV=production
-`;
-    fs.writeFileSync(envPath, envContent);
-    console.log('\n✅ Created .env file');
+// Discord Bot Setup
+console.log('\n🤖 Discord Bot Configuration');
+console.log('----------------------------');
+
+const askQuestion = (question) => {
+    return new Promise((resolve) => {
+        rl.question(question, (answer) => {
+            resolve(answer);
+        });
+    });
+};
+
+async function setupDiscord() {
+    const setupDiscord = await askQuestion('Do you want to set up Discord integration? (y/n): ');
+    
+    if (setupDiscord.toLowerCase() === 'y') {
+        const botToken = await askQuestion('Enter your Discord Bot Token: ');
+        const channelId = await askQuestion('Enter your Discord Channel ID for logs: ');
+        
+        // Update .env file
+        const envPath = path.join(__dirname, '.env');
+        let envContent = '';
+        
+        if (fs.existsSync(envPath)) {
+            envContent = fs.readFileSync(envPath, 'utf8');
+        }
+        
+        envContent += `\n# Discord Configuration\nDISCORD_BOT_TOKEN=${botToken}\nDISCORD_CHANNEL_ID=${channelId}\n`;
+        fs.writeFileSync(envPath, envContent);
+        
+        console.log('✅ Discord configuration saved to .env');
+    }
 }
 
-console.log('\n🎯 IMPOSTER DOWNLOADER SETUP COMPLETE!');
-console.log('Copyright IMPOSTER 2026-2027');
-console.log('Run: npm start');
+// Run Discord setup
+setupDiscord().then(() => {
+    // Create .env file with defaults if not exists
+    const envPath = path.join(__dirname, '.env');
+    if (!fs.existsSync(envPath)) {
+        const envContent = `PORT=3000
+NODE_ENV=production
+# Add your Discord bot token below
+# DISCORD_BOT_TOKEN=your_token_here
+# DISCORD_CHANNEL_ID=your_channel_id_here
+`;
+        fs.writeFileSync(envPath, envContent);
+        console.log('\n✅ Created .env file');
+    }
+
+    console.log('\n🎯 IMPOSTER DOWNLOADER SETUP COMPLETE!');
+    console.log('© IMPOSTER 2026-2027');
+    console.log('Run: npm start');
+    
+    rl.close();
+});

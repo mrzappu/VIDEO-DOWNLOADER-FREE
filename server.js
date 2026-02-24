@@ -1,4 +1,4 @@
-// server.js - UPDATED WITH YOUTUBE BYPASS
+// server.js - IMPOSTER DOWNLOADER
 require('dotenv').config();
 
 // ==================== DEPENDENCIES ====================
@@ -16,7 +16,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ==================== CONFIGURATION ====================
-const TEMP_DIR = process.env.RENDER ? '/tmp/universal-downloader' : path.join(__dirname, 'temp');
+const TEMP_DIR = process.env.RENDER ? '/tmp/imposter-downloader' : path.join(__dirname, 'temp');
 const DOWNLOADS_DIR = path.join(__dirname, 'downloads');
 
 // Ensure directories exist
@@ -32,7 +32,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Rate limiting - 3 requests per minute per IP
+// Rate limiting
 const limiter = rateLimit({
     windowMs: 60 * 1000,
     max: 3,
@@ -55,16 +55,13 @@ function detectPlatform(url) {
     return 'unknown';
 }
 
-// ==================== YOUTUBE BYPASS METHODS ====================
-
-// Method 1: Use yt-dlp with impersonation and multiple clients
-async function downloadYouTube(url, format = 'mp4', quality = 'best') {
-    console.log(`📥 YouTube download: ${url.substring(0, 50)}...`);
+// ==================== DOWNLOAD FUNCTIONS ====================
+async function downloadMedia(url, format = 'mp4', platform) {
+    console.log(`📥 IMPOSTER Download: ${platform} - ${url.substring(0, 50)}...`);
     
     return new Promise((resolve, reject) => {
-        const tempFile = path.join(TEMP_DIR, `yt_${Date.now()}_${Math.random().toString(36).substring(7)}.${format === 'mp3' ? 'mp3' : 'mp4'}`);
+        const tempFile = path.join(TEMP_DIR, `imposter_${Date.now()}_${Math.random().toString(36).substring(7)}.${format === 'mp3' ? 'mp3' : 'mp4'}`);
         
-        // ADVANCED yt-dlp arguments to bypass login requirement
         const args = [
             url,
             '-f', format === 'mp3' ? 'bestaudio' : 'best[ext=mp4]/best',
@@ -73,165 +70,54 @@ async function downloadYouTube(url, format = 'mp4', quality = 'best') {
             '--no-warnings',
             '--geo-bypass',
             '--force-ipv4',
-            '--extractor-args', 'youtube:player_client=android,web_safari,web_embedded',
-            '--impersonate', 'chrome:windows',
-            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            '--add-header', 'Accept-Language: en-US,en;q=0.9',
-            '--sleep-requests', '2.0',
-            '--sleep-interval', '3',
-            '--max-sleep-interval', '7'
+            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         ];
-        
-        if (format === 'mp3') {
-            args.push('-x', '--audio-format', 'mp3');
-        }
-        
-        console.log(`🔄 Running: yt-dlp with ${args.length} args`);
-        
-        const ytdlp = spawn('yt-dlp', args);
-        let errorOutput = '';
-        
-        ytdlp.stderr.on('data', (data) => {
-            errorOutput += data.toString();
-            // Log progress
-            if (data.toString().includes('%')) {
-                console.log(`📊 Progress: ${data.toString().trim()}`);
-            }
-        });
-        
-        ytdlp.on('close', (code) => {
-            if (code !== 0 || !fs.existsSync(tempFile)) {
-                // Check for specific errors
-                if (errorOutput.includes('Sign in') || errorOutput.includes('LOGIN_REQUIRED')) {
-                    return reject(new Error('YouTube requires login from this IP. Try a different platform or use the alternative downloader below.'));
-                }
-                return reject(new Error(`YouTube download failed: ${errorOutput.substring(0, 200)}`));
-            }
-            
-            const stats = fs.statSync(tempFile);
-            console.log(`✅ Download complete: ${(stats.size / 1024 / 1024).toFixed(2)} MB`);
-            
-            const stream = fs.createReadStream(tempFile);
-            const filename = `youtube_${Date.now()}.${format === 'mp3' ? 'mp3' : 'mp4'}`;
-            
-            stream.on('end', () => {
-                fs.unlink(tempFile, () => console.log('🧹 Temp file deleted'));
-            });
-            
-            resolve({ stream, filename });
-        });
-        
-        ytdlp.on('error', (err) => {
-            reject(new Error(`Failed to start yt-dlp: ${err.message}`));
-        });
-    });
-}
 
-// Method 2: Use alternative frontend (Invidious) as fallback [citation:2][citation:5]
-async function downloadYouTubeViaInvidious(url, format = 'mp4') {
-    console.log(`🔄 Trying Invidious fallback...`);
-    
-    // Extract video ID
-    let videoId = '';
-    if (url.includes('youtube.com/watch')) {
-        videoId = new URL(url).searchParams.get('v');
-    } else if (url.includes('youtu.be/')) {
-        videoId = url.split('youtu.be/')[1].split('?')[0];
-    }
-    
-    if (!videoId) {
-        throw new Error('Could not extract video ID');
-    }
-    
-    // Use public Invidious instance [citation:2]
-    const invidiousUrl = `https://yewtu.be/watch?v=${videoId}`;
-    
-    return new Promise((resolve, reject) => {
-        const tempFile = path.join(TEMP_DIR, `invidious_${Date.now()}.${format === 'mp3' ? 'mp3' : 'mp4'}`);
-        
-        const args = [
-            invidiousUrl,
-            '-f', format === 'mp3' ? 'bestaudio' : 'best',
-            '-o', tempFile,
-            '--no-playlist',
-            '--no-warnings'
-        ];
-        
-        if (format === 'mp3') {
-            args.push('-x', '--audio-format', 'mp3');
-        }
-        
-        const ytdlp = spawn('yt-dlp', args);
-        
-        ytdlp.on('close', (code) => {
-            if (code !== 0 || !fs.existsSync(tempFile)) {
-                reject(new Error('Invidious fallback failed'));
-            } else {
-                const stream = fs.createReadStream(tempFile);
-                const filename = `youtube_${Date.now()}.${format === 'mp3' ? 'mp3' : 'mp4'}`;
-                
-                stream.on('end', () => {
-                    fs.unlink(tempFile, () => {});
-                });
-                
-                resolve({ stream, filename });
-            }
-        });
-    });
-}
-
-// ==================== OTHER PLATFORMS ====================
-async function downloadOther(url, format = 'mp4', platform) {
-    console.log(`📥 Downloading from ${platform}: ${url.substring(0, 50)}...`);
-    
-    return new Promise((resolve, reject) => {
-        const tempFile = path.join(TEMP_DIR, `dl_${Date.now()}.${format === 'mp3' ? 'mp3' : 'mp4'}`);
-        
-        const args = [
-            url,
-            '-f', format === 'mp3' ? 'bestaudio' : 'best[ext=mp4]/best',
-            '-o', tempFile,
-            '--no-playlist',
-            '--no-warnings',
-            '--geo-bypass',
-            '--force-ipv4'
-        ];
-        
-        // Platform-specific arguments
+        // Platform-specific optimizations
         if (platform === 'tiktok') {
             args.push('--impersonate', 'chrome-131');
         }
         
-        if (platform === 'reddit') {
-            args.push('--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+        if (platform === 'youtube') {
+            args.push('--extractor-args', 'youtube:player_client=android,web_safari');
+            args.push('--sleep-requests', '2.0');
         }
-        
+
         if (format === 'mp3') {
             args.push('-x', '--audio-format', 'mp3');
         }
-        
+
         const ytdlp = spawn('yt-dlp', args);
         let errorOutput = '';
-        
+
         ytdlp.stderr.on('data', (data) => {
             errorOutput += data.toString();
+            if (data.toString().includes('%')) {
+                console.log(`📊 Progress: ${data.toString().trim()}`);
+            }
         });
-        
+
         ytdlp.on('close', (code) => {
             if (code !== 0 || !fs.existsSync(tempFile)) {
+                if (platform === 'youtube' && errorOutput.includes('Sign in')) {
+                    return reject(new Error('YOUTUBE_BLOCKED'));
+                }
                 if (platform === 'reddit' && errorOutput.includes('403')) {
-                    return reject(new Error('Reddit blocks datacenter IPs. Try a different platform.'));
+                    return reject(new Error('REDDIT_BLOCKED'));
                 }
                 return reject(new Error(`Download failed: ${errorOutput.substring(0, 200)}`));
             }
-            
+
+            const stats = fs.statSync(tempFile);
+            console.log(`✅ Download complete: ${(stats.size / 1024 / 1024).toFixed(2)} MB`);
+
             const stream = fs.createReadStream(tempFile);
-            const filename = `${platform}_${Date.now()}.${format === 'mp3' ? 'mp3' : 'mp4'}`;
-            
+            const filename = `imposter_${platform}_${Date.now()}.${format === 'mp3' ? 'mp3' : 'mp4'}`;
+
             stream.on('end', () => {
-                fs.unlink(tempFile, () => {});
+                fs.unlink(tempFile, () => console.log('🧹 Temp file deleted'));
             });
-            
+
             resolve({ stream, filename });
         });
     });
@@ -239,18 +125,20 @@ async function downloadOther(url, format = 'mp4', platform) {
 
 // ==================== WEB INTERFACE ====================
 app.get('/', (req, res) => {
+    const isRender = !!process.env.RENDER;
+    
     res.send(`
         <!DOCTYPE html>
         <html>
         <head>
-            <title>UNIVERSAL MEDIA DOWNLOADER</title>
+            <title>IMPOSTER DOWNLOADER</title>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <style>
                 * { margin: 0; padding: 0; box-sizing: border-box; }
                 body {
                     font-family: 'Segoe UI', sans-serif;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    background: linear-gradient(135deg, #1a1a1a 0%, #2c3e50 100%);
                     min-height: 100vh;
                     display: flex;
                     justify-content: center;
@@ -258,19 +146,32 @@ app.get('/', (req, res) => {
                     padding: 20px;
                 }
                 .container {
-                    background: rgba(255, 255, 255, 0.95);
+                    background: rgba(20, 20, 20, 0.95);
                     border-radius: 20px;
                     padding: 40px;
-                    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                    box-shadow: 0 20px 60px rgba(255, 0, 0, 0.3);
                     max-width: 700px;
                     width: 100%;
+                    border: 1px solid #ff0000;
                 }
-                h1 { color: #333; text-align: center; margin-bottom: 10px; }
-                .subtitle { text-align: center; color: #666; margin-bottom: 30px; }
+                h1 { 
+                    color: #ff0000; 
+                    text-align: center; 
+                    margin-bottom: 10px;
+                    font-size: 3em;
+                    text-shadow: 0 0 10px rgba(255,0,0,0.5);
+                    letter-spacing: 2px;
+                }
+                .subtitle { 
+                    text-align: center; 
+                    color: #888; 
+                    margin-bottom: 30px;
+                    font-style: italic;
+                }
                 .warning-box {
-                    background: #fff3cd;
-                    border: 1px solid #ffeeba;
-                    color: #856404;
+                    background: #2a0000;
+                    border: 1px solid #ff0000;
+                    color: #ff6666;
                     padding: 15px;
                     border-radius: 8px;
                     margin-bottom: 20px;
@@ -282,27 +183,32 @@ app.get('/', (req, res) => {
                     margin-bottom: 30px;
                 }
                 .platform-badge {
-                    background: #f0f0f0;
+                    background: #2a2a2a;
                     padding: 8px;
                     border-radius: 8px;
                     text-align: center;
                     font-size: 0.9em;
                     font-weight: 500;
+                    color: white;
+                    border: 1px solid #444;
                 }
-                .platform-badge.youtube { background: #ff0000; color: white; }
-                .platform-badge.tiktok { background: #000000; color: white; }
-                .platform-badge.instagram { background: #E4405F; color: white; }
-                .platform-badge.twitter { background: #1DA1F2; color: white; }
+                .platform-badge.youtube { background: #8b0000; }
+                .platform-badge.tiktok { background: #000000; }
+                .platform-badge.instagram { background: #8b004b; }
+                .platform-badge.twitter { background: #002b8b; }
                 .input-group { margin-bottom: 20px; }
                 input[type="url"] {
                     width: 100%;
                     padding: 15px;
                     font-size: 16px;
-                    border: 2px solid #ddd;
+                    background: #2a2a2a;
+                    border: 2px solid #444;
                     border-radius: 10px;
                     outline: none;
+                    color: white;
                 }
-                input[type="url"]:focus { border-color: #667eea; }
+                input[type="url"]:focus { border-color: #ff0000; }
+                input[type="url"]::placeholder { color: #666; }
                 .options {
                     display: flex;
                     gap: 20px;
@@ -311,63 +217,78 @@ app.get('/', (req, res) => {
                 select {
                     width: 100%;
                     padding: 10px;
-                    border: 2px solid #ddd;
+                    background: #2a2a2a;
+                    border: 2px solid #444;
                     border-radius: 8px;
+                    color: white;
                 }
                 button {
                     width: 100%;
                     padding: 15px;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    background: #ff0000;
                     color: white;
                     border: none;
                     border-radius: 10px;
                     font-size: 18px;
                     font-weight: 600;
                     cursor: pointer;
+                    text-transform: uppercase;
+                    letter-spacing: 2px;
                 }
-                button:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4); }
+                button:hover { 
+                    background: #cc0000;
+                    transform: translateY(-2px);
+                    box-shadow: 0 10px 30px rgba(255,0,0,0.4);
+                }
                 .info {
                     margin-top: 30px;
                     padding: 20px;
-                    background: #f8f9fa;
+                    background: #1a1a1a;
                     border-radius: 10px;
+                    color: #ccc;
                 }
+                .info h3 { color: #ff0000; margin-bottom: 10px; }
                 #status {
                     margin-top: 20px;
                     padding: 15px;
                     border-radius: 8px;
                     display: none;
                 }
-                .status-success { background: #d4edda; color: #155724; }
-                .status-error { background: #f8d7da; color: #721c24; }
-                .status-info { background: #d1ecf1; color: #0c5460; }
+                .status-success { background: #004d00; color: #00ff00; }
+                .status-error { background: #4d0000; color: #ff6666; }
+                .status-info { background: #002b4d; color: #66ccff; }
                 .progress {
                     margin-top: 20px;
                     height: 30px;
-                    background: #f0f0f0;
+                    background: #2a2a2a;
                     border-radius: 15px;
                     overflow: hidden;
                     display: none;
                 }
                 .progress-bar {
                     height: 100%;
-                    background: linear-gradient(90deg, #667eea, #764ba2);
+                    background: #ff0000;
                     width: 0%;
                     color: white;
                     text-align: center;
                     line-height: 30px;
                 }
-                .footer { margin-top: 30px; text-align: center; color: #888; }
+                .footer { 
+                    margin-top: 30px; 
+                    text-align: center; 
+                    color: #ff0000;
+                    font-size: 0.9em;
+                }
+                .footer span { color: #666; }
             </style>
         </head>
         <body>
             <div class="container">
-                <h1>🎬 UNIVERSAL DOWNLOADER</h1>
-                <div class="subtitle">1000+ Platforms • No Sign-In • No Cookies</div>
+                <h1>IMPOSTER</h1>
+                <div class="subtitle">DOWNLOADER</div>
                 
                 <div class="warning-box">
-                    <strong>⚠️ YouTube Notice:</strong> YouTube now blocks downloads from datacenter IPs (like Render) [citation:3][citation:8]. 
-                    If YouTube fails, try TikTok, Instagram, Twitter, or other platforms below.
+                    <strong>⚠️ YOUTUBE NOTICE:</strong> YouTube blocks datacenter IPs. Use TikTok/Instagram/Twitter for instant downloads.
                 </div>
                 
                 <div class="platform-grid">
@@ -375,19 +296,15 @@ app.get('/', (req, res) => {
                     <div class="platform-badge tiktok">TikTok</div>
                     <div class="platform-badge instagram">Instagram</div>
                     <div class="platform-badge twitter">Twitter/X</div>
-                    <div class="platform-badge">Facebook</div>
-                    <div class="platform-badge">Reddit</div>
-                    <div class="platform-badge">Twitch</div>
-                    <div class="platform-badge">Vimeo</div>
                 </div>
                 
                 <div class="input-group">
-                    <input type="url" id="url" placeholder="Paste any video URL (TikTok, Instagram, Twitter, YouTube*...)" required>
+                    <input type="url" id="url" placeholder="Paste any video URL (TikTok, Instagram, Twitter...)" required>
                 </div>
                 
                 <div class="options">
                     <div style="flex:1">
-                        <label>Format</label>
+                        <label style="color: #ccc;">Format</label>
                         <select id="format">
                             <option value="mp4">MP4 Video</option>
                             <option value="mp3">MP3 Audio</option>
@@ -395,7 +312,7 @@ app.get('/', (req, res) => {
                     </div>
                 </div>
                 
-                <button id="downloadBtn">⬇️ DOWNLOAD NOW</button>
+                <button id="downloadBtn">⬇️ DOWNLOAD</button>
                 
                 <div id="status"></div>
                 <div class="progress">
@@ -403,20 +320,14 @@ app.get('/', (req, res) => {
                 </div>
                 
                 <div class="info">
-                    <h3>✨ Working Platforms</h3>
-                    <p>✅ <strong>TikTok, Instagram, Twitter, Facebook:</strong> Fully working</p>
-                    <p>✅ <strong>Twitch, Vimeo, SoundCloud:</strong> Fully working</p>
-                    <p>⚠️ <strong>YouTube:</strong> Currently blocked on datacenter IPs [citation:3][citation:6]. Try these alternatives:</p>
-                    <ul style="margin-left: 20px; margin-top: 5px;">
-                        <li>Use a different platform (TikTok/Instagram)</li>
-                        <li>Try again later (YouTube may lift blocks)</li>
-                        <li>Use the video ID to search on other platforms</li>
-                    </ul>
-                    <p>📱 <strong>Reddit:</strong> Often blocks datacenter IPs [citation:5]</p>
+                    <h3>✨ IMPOSTER FEATURES</h3>
+                    <p>✅ TikTok, Instagram, Twitter, Facebook</p>
+                    <p>✅ Twitch, Vimeo, SoundCloud, 1000+ sites</p>
+                    <p>⚠️ YouTube currently blocked on datacenter IPs</p>
                 </div>
                 
                 <div class="footer">
-                    ⚡ Powered by yt-dlp | Hosted on Render
+                    © IMPOSTER 2026-2027
                 </div>
             </div>
             
@@ -488,53 +399,16 @@ app.get('/api/download', async (req, res) => {
     const timestamps = (rateLimitMap.get(clientIP) || []).filter(t => now - t < 60000);
     
     if (timestamps.length > 3) {
-        return res.status(429).send('Rate limit exceeded (3 per minute). Try again later.');
+        return res.status(429).send('Rate limit exceeded. Try again later.');
     }
     
     timestamps.push(now);
     rateLimitMap.set(clientIP, timestamps);
 
     const platform = detectPlatform(url);
-    console.log(`🌐 Platform: ${platform}`);
 
     try {
-        let result;
-        
-        if (platform === 'youtube') {
-            try {
-                // Try primary YouTube method first
-                result = await downloadYouTube(url, format);
-            } catch (youtubeError) {
-                console.log('YouTube primary failed, trying Invidious fallback...');
-                try {
-                    // Try Invidious as fallback [citation:2][citation:5]
-                    result = await downloadYouTubeViaInvidious(url, format);
-                } catch (invidiousError) {
-                    // If both fail, return a helpful message
-                    return res.status(400).send(`
-                        <html>
-                        <body style="font-family: Arial; text-align: center; padding: 50px;">
-                            <h1 style="color: #ff0000;">❌ YouTube Blocked</h1>
-                            <p>YouTube is currently blocking downloads from datacenter IPs (like Render) [citation:3][citation:8].</p>
-                            <p>✅ Try downloading from:</p>
-                            <ul style="list-style: none; padding: 0;">
-                                <li>• TikTok (fully working)</li>
-                                <li>• Instagram (fully working)</li>
-                                <li>• Twitter/X (fully working)</li>
-                                <li>• Facebook (fully working)</li>
-                            </ul>
-                            <a href="/" style="display: inline-block; margin-top: 20px; background: #667eea; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Try Another URL</a>
-                        </body>
-                        </html>
-                    `);
-                }
-            }
-        } else {
-            // Handle all other platforms
-            result = await downloadOther(url, format, platform);
-        }
-        
-        const { stream, filename } = result;
+        const { stream, filename } = await downloadMedia(url, format, platform);
         
         res.setHeader('Content-Disposition', contentDisposition(filename));
         res.setHeader('Content-Type', format === 'mp3' ? 'audio/mpeg' : 'video/mp4');
@@ -545,13 +419,27 @@ app.get('/api/download', async (req, res) => {
     } catch (error) {
         console.error('Download error:', error);
         
+        if (error.message === 'YOUTUBE_BLOCKED') {
+            return res.status(400).send(`
+                <html>
+                <body style="font-family: Arial; text-align: center; padding: 50px; background: #1a1a1a; color: white;">
+                    <h1 style="color: #ff0000;">❌ YOUTUBE BLOCKED</h1>
+                    <p>YouTube blocks downloads from datacenter IPs.</p>
+                    <p style="color: #00ff00;">✅ Try TikTok, Instagram, or Twitter instead!</p>
+                    <a href="/" style="display: inline-block; margin-top: 20px; background: #ff0000; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">BACK</a>
+                    <div style="margin-top: 50px; color: #ff0000;">© IMPOSTER 2026-2027</div>
+                </body>
+                </html>
+            `);
+        }
+        
         res.status(500).send(`
             <html>
-            <body style="font-family: Arial; text-align: center; padding: 50px;">
-                <h1 style="color: #ff0000;">❌ Download Failed</h1>
+            <body style="font-family: Arial; text-align: center; padding: 50px; background: #1a1a1a; color: white;">
+                <h1 style="color: #ff0000;">❌ DOWNLOAD FAILED</h1>
                 <p>${error.message}</p>
-                <p>Try a different video or platform.</p>
-                <a href="/" style="background: #667eea; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Go Back</a>
+                <a href="/" style="display: inline-block; margin-top: 20px; background: #ff0000; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">BACK</a>
+                <div style="margin-top: 50px; color: #ff0000;">© IMPOSTER 2026-2027</div>
             </body>
             </html>
         `);
@@ -561,10 +449,10 @@ app.get('/api/download', async (req, res) => {
 // Health check
 app.get('/health', (req, res) => {
     res.json({
-        status: 'healthy',
-        uptime: process.uptime(),
-        tempDir: TEMP_DIR,
-        nodeVersion: process.version
+        status: 'IMPOSTER ONLINE',
+        version: '4.2.0',
+        copyright: 'IMPOSTER 2026-2027',
+        tempDir: TEMP_DIR
     });
 });
 
@@ -573,13 +461,18 @@ app.listen(PORT, () => {
     console.clear();
     console.log(`
 ╔══════════════════════════════════════════════════════════╗
-║   🎬 UNIVERSAL MEDIA DOWNLOADER - RUNNING               ║
+║   ██╗███╗   ███╗██████╗  ██████╗ ███████╗████████╗     ║
+║   ██║████╗ ████║██╔══██╗██╔═══██╗██╔════╝╚══██╔══╝     ║
+║   ██║██╔████╔██║██████╔╝██║   ██║███████╗   ██║        ║
+║   ██║██║╚██╔╝██║██╔═══╝ ██║   ██║╚════██║   ██║        ║
+║   ██║██║ ╚═╝ ██║██║     ╚██████╔╝███████║   ██║        ║
+║   ╚═╝╚═╝     ╚═╝╚═╝      ╚═════╝ ╚══════╝   ╚═╝        ║
 ╠══════════════════════════════════════════════════════════╣
 ║   📍 Port: ${PORT}                                           
 ║   🌐 URL: http://localhost:${PORT}                             
-║   🔥 WORKING: TikTok, Instagram, Twitter, Facebook                 
-║   ⚠️ YOUTUBE: Blocked on datacenter IPs [citation:3]    
-║   💡 Try alternative platforms for instant downloads     
+║   🔥 WORKING: TikTok • Instagram • Twitter • Facebook                 
+║   ⚠️ YOUTUBE: Blocked on datacenter IPs     
+║   © IMPOSTER 2026-2027                          
 ╚══════════════════════════════════════════════════════════╝
     `);
 });

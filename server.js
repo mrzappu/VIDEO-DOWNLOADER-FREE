@@ -1,6 +1,5 @@
 const express = require('express');
 const cors = require('cors');
-const axios = require('axios');
 const ytdl = require('ytdl-core');
 const fs = require('fs');
 const path = require('path');
@@ -29,7 +28,7 @@ setInterval(() => {
     files.forEach(file => {
         const filePath = path.join(TEMP_DIR, file);
         const stats = fs.statSync(filePath);
-        if (now - stats.mtimeMs > 15 * 60 * 1000) { // 15 minutes
+        if (now - stats.mtimeMs > 15 * 60 * 1000) {
             fs.unlinkSync(filePath);
         }
     });
@@ -42,19 +41,13 @@ function getPlatform(url) {
     if (urlLower.includes('instagram.com')) return 'instagram';
     if (urlLower.includes('tiktok.com')) return 'tiktok';
     if (urlLower.includes('facebook.com')) return 'facebook';
-    if (urlLower.includes('twitter.com') || urlLower.includes('x.com')) return 'twitter';
-    if (urlLower.includes('vimeo.com')) return 'vimeo';
     return 'other';
 }
 
 // Helper: Format duration
 function formatDuration(seconds) {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
+    const minutes = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    if (hours > 0) {
-        return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    }
     return `${minutes}:${secs.toString().padStart(2, '0')}`;
 }
 
@@ -70,7 +63,7 @@ app.get('/api/info', async (req, res) => {
     
     try {
         if (platform === 'youtube') {
-            // Get YouTube video info
+            // Get YouTube video info using ytdl-core
             const info = await ytdl.getInfo(url);
             const formats = [];
             const seenQualities = new Set();
@@ -78,6 +71,8 @@ app.get('/api/info', async (req, res) => {
             // Get video formats with both video and audio
             const videoFormats = info.formats.filter(f => f.hasVideo && f.hasAudio);
             
+            // Quality mapping
+            const qualityOrder = ['2160p', '1440p', '1080p', '720p', '480p', '360p', '240p', '144p'];
             const qualityMap = {
                 '2160p': { key: '4k', label: '4K Ultra HD', badge: '4K' },
                 '1440p': { key: '2k', label: '2K Quad HD', badge: '2K' },
@@ -89,17 +84,17 @@ app.get('/api/info', async (req, res) => {
                 '144p': { key: '144', label: '144p', badge: '144p' }
             };
             
-            videoFormats.forEach(format => {
-                const qualityLabel = format.qualityLabel;
-                if (qualityLabel && qualityMap[qualityLabel] && !seenQualities.has(qualityLabel)) {
-                    seenQualities.add(qualityLabel);
+            // Add available video qualities
+            qualityOrder.forEach(quality => {
+                const hasFormat = videoFormats.some(f => f.qualityLabel === quality);
+                if (hasFormat && !seenQualities.has(quality)) {
+                    seenQualities.add(quality);
                     formats.push({
-                        quality: qualityMap[qualityLabel].key,
-                        label: qualityMap[qualityLabel].label,
+                        quality: qualityMap[quality].key,
+                        label: qualityMap[quality].label,
                         ext: 'mp4',
                         type: 'video',
-                        badge: qualityMap[qualityLabel].badge,
-                        itag: format.itag
+                        badge: qualityMap[quality].badge
                     });
                 }
             });
@@ -127,32 +122,10 @@ app.get('/api/info', async (req, res) => {
                 channel: info.videoDetails.author.name,
                 duration: formatDuration(parseInt(info.videoDetails.lengthSeconds)),
                 platform: 'YOUTUBE',
-                formats: formats.slice(0, 10)
+                formats: formats
             });
-        } 
-        else {
-            // Mock response for other platforms (Instagram, TikTok, etc.)
-            const platformNames = {
-                instagram: 'INSTAGRAM',
-                tiktok: 'TIKTOK',
-                facebook: 'FACEBOOK',
-                twitter: 'TWITTER/X',
-                vimeo: 'VIMEO'
-            };
-            
-            res.json({
-                title: `${platformNames[platform] || 'VIDEO'} - Trending Content`,
-                thumbnail: `https://picsum.photos/id/${Math.floor(Math.random() * 100)}/128/76`,
-                channel: '@content_creator',
-                duration: '01:30',
-                platform: platformNames[platform] || platform.toUpperCase(),
-                formats: [
-                    { quality: '1080', label: 'Full HD 1080p', ext: 'mp4', type: 'video', badge: '1080p' },
-                    { quality: '720', label: 'HD 720p', ext: 'mp4', type: 'video', badge: '720p' },
-                    { quality: '480', label: '480p', ext: 'mp4', type: 'video', badge: '480p' },
-                    { quality: 'mp3', label: 'MP3 Audio', ext: 'mp3', type: 'audio', badge: 'MP3' }
-                ]
-            });
+        } else {
+            res.status(400).json({ error: 'Only YouTube URLs are supported in this version' });
         }
     } catch (error) {
         console.error('Error:', error.message);
@@ -180,93 +153,84 @@ app.post('/api/download', async (req, res) => {
     });
     
     // Start download in background
-    startDownload(jobId, url, quality, platform);
+    startDownload(jobId, url, quality);
     
     res.json({ job_id: jobId });
 });
 
-async function startDownload(jobId, url, quality, platform) {
+async function startDownload(jobId, url, quality) {
     const job = downloads.get(jobId);
     
     try {
-        if (platform === 'youtube') {
-            const info = await ytdl.getInfo(url);
-            let stream = null;
-            let filename = '';
+        const info = await ytdl.getInfo(url);
+        let stream = null;
+        let filename = '';
+        let filePath = '';
+        
+        if (quality === 'mp3' || quality === 'm4a') {
+            // Audio only download
+            const audioFormat = ytdl.chooseFormat(info.formats, { 
+                quality: 'lowestaudio',
+                filter: 'audioonly'
+            });
+            stream = ytdl(url, { format: audioFormat });
+            filename = `${info.videoDetails.title.replace(/[^\w\s]/gi, '').substring(0, 50)}_${quality}.mp3`;
+            filePath = path.join(TEMP_DIR, `${jobId}_${filename}`);
+        } else {
+            // Video download based on quality
+            let qualityFilter = 'highestvideo';
+            if (quality === '1080') qualityFilter = '137+140';
+            else if (quality === '720') qualityFilter = '136+140';
+            else if (quality === '480') qualityFilter = '135+140';
+            else if (quality === '360') qualityFilter = '134+140';
             
-            // Select format based on quality
-            if (quality === 'mp3' || quality === 'm4a') {
-                // Audio only
-                const audioFormat = ytdl.chooseFormat(info.formats, { 
-                    quality: 'lowestaudio',
-                    filter: 'audioonly'
-                });
-                stream = ytdl(url, { format: audioFormat });
-                filename = `${info.videoDetails.title.replace(/[^\w\s]/gi, '')}_${quality}.mp3`;
-            } else {
-                // Video with audio
-                let qualityFilter = 'highest';
-                if (quality === '4k') qualityFilter = 'highestvideo';
-                else if (quality === '1080') qualityFilter = '137+140'; // 1080p
-                else if (quality === '720') qualityFilter = '136+140'; // 720p
-                else if (quality === '480') qualityFilter = '135+140'; // 480p
-                
-                stream = ytdl(url, { quality: qualityFilter });
-                filename = `${info.videoDetails.title.replace(/[^\w\s]/gi, '')}_${quality}.mp4`;
-            }
-            
-            const filePath = path.join(TEMP_DIR, `${jobId}_${filename}`);
-            const writeStream = fs.createWriteStream(filePath);
-            
-            let downloadedBytes = 0;
-            let totalBytes = 0;
-            
-            stream.on('progress', (chunkLength, downloaded, total) => {
-                downloadedBytes = downloaded;
-                totalBytes = total;
-                const progress = Math.floor((downloaded / total) * 100);
+            stream = ytdl(url, { quality: qualityFilter });
+            filename = `${info.videoDetails.title.replace(/[^\w\s]/gi, '').substring(0, 50)}_${quality}.mp4`;
+            filePath = path.join(TEMP_DIR, `${jobId}_${filename}`);
+        }
+        
+        const writeStream = fs.createWriteStream(filePath);
+        
+        let lastProgress = 0;
+        stream.on('progress', (chunkLength, downloaded, total) => {
+            const progress = Math.floor((downloaded / total) * 100);
+            if (progress !== lastProgress) {
+                lastProgress = progress;
                 job.progress = progress;
                 downloads.set(jobId, job);
-            });
+            }
+        });
+        
+        stream.pipe(writeStream);
+        
+        writeStream.on('finish', () => {
+            job.status = 'done';
+            job.progress = 100;
+            job.filePath = filePath;
+            job.filename = filename;
+            downloads.set(jobId, job);
             
-            stream.pipe(writeStream);
-            
-            writeStream.on('finish', () => {
-                job.status = 'done';
-                job.progress = 100;
-                job.filePath = filePath;
-                job.filename = filename;
-                downloads.set(jobId, job);
-                
-                // Schedule file deletion
-                setTimeout(() => {
-                    if (fs.existsSync(filePath)) {
-                        fs.unlinkSync(filePath);
-                        downloads.delete(jobId);
-                    }
-                }, 15 * 60 * 1000);
-            });
-            
-            writeStream.on('error', (err) => {
-                job.status = 'error';
-                job.error = err.message;
-                downloads.set(jobId, job);
-            });
-            
-            stream.on('error', (err) => {
-                job.status = 'error';
-                job.error = err.message;
-                downloads.set(jobId, job);
-            });
-        } else {
-            // Mock download for other platforms
+            // Delete file after 15 minutes
             setTimeout(() => {
-                job.status = 'done';
-                job.progress = 100;
-                job.directUrl = 'https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4';
-                downloads.set(jobId, job);
-            }, 3000);
-        }
+                if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                    downloads.delete(jobId);
+                }
+            }, 15 * 60 * 1000);
+        });
+        
+        writeStream.on('error', (err) => {
+            job.status = 'error';
+            job.error = err.message;
+            downloads.set(jobId, job);
+        });
+        
+        stream.on('error', (err) => {
+            job.status = 'error';
+            job.error = err.message;
+            downloads.set(jobId, job);
+        });
+        
     } catch (error) {
         job.status = 'error';
         job.error = error.message;
@@ -286,7 +250,7 @@ app.get('/api/progress/:jobId', (req, res) => {
     res.json({
         status: job.status,
         progress: job.progress,
-        speed: '2.4 MB/s',
+        speed: '2.5 MB/s',
         eta: `${Math.ceil((100 - job.progress) / 10)}s`
     });
 });
@@ -302,8 +266,6 @@ app.get('/api/file/:jobId', (req, res) => {
     
     if (job.filePath && fs.existsSync(job.filePath)) {
         res.download(job.filePath, job.filename);
-    } else if (job.directUrl) {
-        res.redirect(job.directUrl);
     } else {
         res.status(404).json({ error: 'File not found' });
     }
@@ -318,4 +280,5 @@ app.get('/', (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`✅ IMPOSTER DOWNLOAD Server running on http://localhost:${PORT}`);
+    console.log(`📍 Open http://localhost:${PORT} in your browser`);
 });

@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IMPOSTER DOWNLOAD – YouTube Downloader | 4K, 1080p, MP3</title>
+  <meta name="description" content="IMPOSTER DOWNLOAD – Download YouTube videos in 4K, 1080p, 720p and MP3. Real working downloader." />
+  <meta name="keywords" content="video downloader, youtube downloader, 4k downloader, mp3 downloader" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    :root{--bg:#07090f;--bg2:#0c0f1a;--card:#101521;--border:#1a2540;--accent:#00e5ff;--red:#ff3c6e;--gold:#ffd700;--green:#00e676;--text:#dde4f0;--muted:#5a6f96;--fh:'Bebas Neue',sans-serif;--fb:'Outfit',sans-serif}
+    body{background:var(--bg);color:var(--text);font-family:var(--fb);min-height:100vh}
+    nav{position:sticky;top:0;z-index:200;display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:60px;background:rgba(7,9,15,.92);backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
+    .logo{font-family:var(--fh);font-size:1.75rem;letter-spacing:3px;background:linear-gradient(90deg,var(--accent),var(--red));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .nav-links{display:flex;gap:20px}
+    .nav-links a{color:var(--muted);text-decoration:none;font-size:.85rem;font-weight:600}
+    .nav-links a:hover{color:var(--accent)}
+    .hero{text-align:center;padding:52px 20px 24px}
+    .badge{display:inline-flex;background:rgba(0,229,255,.07);border:1px solid rgba(0,229,255,.25);border-radius:40px;padding:5px 16px;font-size:.72rem;font-weight:700;color:var(--accent);margin-bottom:16px}
+    .hero h1{font-family:var(--fh);font-size:clamp(2.6rem,8vw,5.5rem);background:linear-gradient(135deg,#fff 0%,var(--accent) 55%,var(--red) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:12px}
+    .hero p{color:var(--muted);max-width:560px;margin:0 auto}
+    .layout{display:flex;gap:18px;max-width:1180px;margin:0 auto;padding:0 20px}
+    .sidebar{width:160px;flex-shrink:0}
+    .center{flex:1}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px;margin-bottom:16px}
+    .ptabs{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:20px}
+    .ptab{padding:7px 14px;border-radius:30px;border:1.5px solid var(--border);background:transparent;color:var(--muted);cursor:pointer}
+    .ptab.on{border-color:var(--accent);color:var(--accent)}
+    .url-row{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+    .url-input{flex:1;background:var(--bg2);border:1.5px solid var(--border);border-radius:12px;padding:14px 16px;color:var(--text);outline:none}
+    .url-input:focus{border-color:var(--accent)}
+    .btn-paste{background:var(--bg2);border:1.5px solid var(--border);border-radius:12px;padding:14px;color:var(--muted);cursor:pointer}
+    .btn-go{background:linear-gradient(135deg,var(--accent),#0099bb);border:none;border-radius:12px;padding:14px 28px;color:#000;font-weight:800;cursor:pointer}
+    .btn-go:disabled{opacity:.6}
+    .q-label{font-size:.7rem;font-weight:700;color:var(--muted);margin-bottom:8px}
+    .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
+    .chip{padding:7px 14px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--muted);cursor:pointer}
+    .chip.on{border-color:var(--red);color:var(--red)}
+    .chip.aud.on{border-color:var(--gold);color:var(--gold)}
+    .prog-wrap{display:none;margin-top:16px}
+    .prog-wrap.show{display:block}
+    .prog-track{background:var(--bg2);border-radius:10px;height:7px}
+    .prog-bar{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--red));border-radius:10px}
+    .prog-info{display:flex;justify-content:space-between;font-size:.75rem;color:var(--muted);margin-top:6px}
+    .status-msg{display:none;text-align:center;padding:12px;border-radius:10px;margin-top:12px}
+    .status-msg.show{display:block}
+    .status-msg.err{background:rgba(255,60,110,.1);color:var(--red)}
+    .status-msg.ok{background:rgba(0,230,118,.1);color:var(--green)}
+    .result{display:none;background:var(--bg2);border:1px solid var(--border);border-radius:14px;margin-top:16px}
+    .result.show{display:block}
+    .vmeta{display:flex;gap:14px;padding:18px;border-bottom:1px solid var(--border)}
+    .vthumb{width:128px;height:76px;border-radius:8px;object-fit:cover}
+    .vtitle{font-size:.92rem;font-weight:700}
+    .fmt-list{padding:14px 16px}
+    .fmt-row{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--card)}
+    .fbadge{padding:3px 9px;border-radius:6px;font-size:.68rem;font-weight:800}
+    .b4k{background:rgba(255,215,0,.12);color:var(--gold)}
+    .bfhd{background:rgba(0,230,118,.1);color:var(--green)}
+    .bhd{background:rgba(160,160,255,.1);color:#a0a0ff}
+    .bmp3{background:rgba(255,215,0,.1);color:var(--gold)}
+    .btn-dl{background:linear-gradient(135deg,var(--red),#aa0040);border:none;border-radius:8px;padding:9px 20px;color:#fff;font-weight:800;cursor:pointer}
+    .btn-dl:disabled{opacity:.5}
+    .spin{display:inline-block;width:14px;height:14px;border:2.5px solid rgba(0,0,0,.2);border-top-color:#000;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:5px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    footer{border-top:1px solid var(--border);padding:28px;text-align:center;color:var(--muted);margin-top:50px}
+    @media(max-width:700px){.sidebar{display:none}}
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">IMPOSTER</div>
+  <div class="nav-links">
+    <a href="#">Home</a><a href="#">YouTube</a><a href="#">MP3</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="badge">🚀 Real YouTube Downloader</div>
+  <h1>IMPOSTER<br>DOWNLOAD</h1>
+  <p>Download any YouTube video in 4K, 1080p, 720p or MP3 — Real working downloader!</p>
+</section>
+
+<div class="layout">
+  <div class="sidebar"></div>
+  <div class="center">
+    <div class="card">
+      <div class="ptabs">
+        <button class="ptab on" data-ph="https://www.youtube.com/watch?v=...">▶️ YouTube</button>
+      </div>
+
+      <div class="url-row">
+        <input class="url-input" id="urlIn" placeholder="https://www.youtube.com/watch?v=..." />
+        <button class="btn-paste" onclick="pasteClip()">📋 Paste</button>
+        <button class="btn-go" id="goBtn" onclick="fetchInfo()">🔍 Analyse</button>
+      </div>
+
+      <div class="q-label">📹 Select Quality</div>
+      <div class="chips" id="chips">
+        <button class="chip on" data-q="4k" data-group="vid">4K</button>
+        <button class="chip" data-q="1080" data-group="vid">1080p</button>
+        <button class="chip" data-q="720" data-group="vid">720p</button>
+        <button class="chip" data-q="480" data-group="vid">480p</button>
+        <button class="chip aud" data-q="mp3" data-group="aud">🎵 MP3</button>
+      </div>
+
+      <div class="prog-wrap" id="progWrap">
+        <div class="prog-track"><div class="prog-bar" id="progBar"></div></div>
+        <div class="prog-info"><span id="progMsg">Fetching...</span><span id="progPct">0%</span></div>
+      </div>
+
+      <div class="status-msg" id="statusMsg"></div>
+
+      <div class="result" id="result">
+        <div class="vmeta">
+          <img class="vthumb" id="vThumb" src="" alt="thumb" />
+          <div class="vinfo">
+            <div class="vtitle" id="vTitle"></div>
+            <div class="vmeta-row" id="vChan"></div>
+            <div class="vmeta-row" id="vDur"></div>
+            <span class="vplatform" id="vPlatform"></span>
+          </div>
+        </div>
+        <div class="fmt-list" id="fmtList"></div>
+      </div>
+    </div>
+  </div>
+  <div class="sidebar"></div>
+</div>
+
+<footer>
+  <p>© 2025 IMPOSTER DOWNLOAD - Real YouTube Downloader</p>
+</footer>
+
+<script>
+  const API = window.location.origin;
+  let pollTimer = null;
+
+  document.querySelectorAll('.ptab').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.ptab').forEach(x => x.classList.remove('on'));
+      t.classList.add('on');
+      resetUI();
+    });
+  });
+
+  document.querySelectorAll('.chip').forEach(c => {
+    c.addEventListener('click', () => {
+      const group = c.dataset.group;
+      document.querySelectorAll(`.chip[data-group="${group}"]`).forEach(x => x.classList.remove('on'));
+      c.classList.add('on');
+    });
+  });
+
+  function selectedQuality() {
+    const on = document.querySelector('.chip.on');
+    return on ? on.dataset.q : '1080';
+  }
+
+  async function pasteClip() {
+    try {
+      const text = await navigator.clipboard.readText();
+      document.getElementById('urlIn').value = text;
+      showStatus('✓ URL pasted!', 'ok');
+    } catch { 
+      showStatus('Press Ctrl+V to paste', 'info'); 
+    }
+  }
+
+  async function fetchInfo() {
+    const url = document.getElementById('urlIn').value.trim();
+    if (!url) { showStatus('❌ Please paste a YouTube URL', 'err'); return; }
+    
+    if (!url.includes('youtube.com') && !url.includes('youtu.be')) {
+      showStatus('❌ Please enter a valid YouTube URL', 'err');
+      return;
+    }
+
+    resetUI();
+    setGoBtn(true, 'Analysing...');
+    showProg(true);
+    animProg(0, 50, 1500, 'Fetching video info...');
+
+    try {
+      const response = await fetch(`${API}/api/info?url=${encodeURIComponent(url)}`);
+      const data = await response.json();
+      
+      if (data.error) throw new Error(data.error);
+      
+      setProg(100, 'Ready!');
+      setTimeout(() => showProg(false), 500);
+      renderResult(data);
+      setGoBtn(false);
+      showStatus(`✅ ${data.formats.length} formats available`, 'ok');
+    } catch (error) {
+      showStatus('❌ ' + error.message, 'err');
+      setGoBtn(false);
+      showProg(false);
+    }
+  }
+
+  function renderResult(data) {
+    document.getElementById('vThumb').src = data.thumbnail;
+    document.getElementById('vTitle').textContent = data.title;
+    document.getElementById('vChan').textContent = '👤 ' + data.channel;
+    document.getElementById('vDur').textContent = '⏱ ' + data.duration;
+    document.getElementById('vPlatform').textContent = data.platform;
+
+    const list = document.getElementById('fmtList');
+    list.innerHTML = '';
+    
+    data.formats.forEach(f => {
+      const badgeClass = f.quality === '4k' ? 'b4k' : (f.quality === 'mp3' ? 'bmp3' : (f.quality === '1080' ? 'bfhd' : 'bhd'));
+      const row = document.createElement('div');
+      row.className = 'fmt-row';
+      row.innerHTML = `
+        <div style="display:flex; gap:10px; align-items:center">
+          <span class="fbadge ${badgeClass}">${f.badge}</span>
+          <span class="fmt-name">${f.label}</span>
+          <span style="font-size:0.7rem; color:var(--muted)">.${f.ext}</span>
+        </div>
+        <button class="btn-dl" onclick="startDownload('${f.quality}', '${f.label.replace(/'/g, "\\'")}')">⬇ Download</button>
+      `;
+      list.appendChild(row);
+    });
+    
+    document.getElementById('result').classList.add('show');
+  }
+
+  async function startDownload(quality, label) {
+    const url = document.getElementById('urlIn').value.trim();
+    
+    showStatus(`⬇ Starting ${label} download...`, 'info');
+    showProg(true);
+    setProg(0, 'Initializing...');
+    
+    try {
+      const response = await fetch(`${API}/api/download`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, quality })
+      });
+      const data = await response.json();
+      
+      if (data.error) throw new Error(data.error);
+      
+      pollDownload(data.job_id, label);
+    } catch (error) {
+      showStatus('❌ Download failed: ' + error.message, 'err');
+      showProg(false);
+    }
+  }
+
+  function pollDownload(jobId, label) {
+    if (pollTimer) clearInterval(pollTimer);
+    
+    pollTimer = setInterval(async () => {
+      try {
+        const response = await fetch(`${API}/api/progress/${jobId}`);
+        const data = await response.json();
+        
+        setProg(data.progress, `Downloading ${label}... ${data.progress}%`);
+        
+        if (data.status === 'done') {
+          clearInterval(pollTimer);
+          setProg(100, 'Complete!');
+          showStatus(`✅ Download complete: ${label}`, 'ok');
+          
+          // Trigger file download
+          window.location.href = `${API}/api/file/${jobId}`;
+          
+          setTimeout(() => {
+            showProg(false);
+            resetUI();
+          }, 3000);
+        } else if (data.status === 'error') {
+          clearInterval(pollTimer);
+          showStatus('❌ Download failed', 'err');
+          showProg(false);
+        }
+      } catch (error) {
+        clearInterval(pollTimer);
+        showStatus('❌ Connection error', 'err');
+        showProg(false);
+      }
+    }, 1000);
+  }
+
+  function showStatus(msg, type) {
+    const el = document.getElementById('statusMsg');
+    el.textContent = msg;
+    el.className = `status-msg show ${type}`;
+    setTimeout(() => el.classList.remove('show'), 4000);
+  }
+
+  function showProg(show) {
+    document.getElementById('progWrap').classList.toggle('show', show);
+  }
+
+  function setProg(pct, msg) {
+    document.getElementById('progBar').style.width = pct + '%';
+    document.getElementById('progMsg').textContent = msg;
+    document.getElementById('progPct').textContent = pct + '%';
+  }
+
+  function animProg(from, to, ms, msg) {
+    const step = (to - from) / (ms / 50);
+    let cur = from;
+    const t = setInterval(() => {
+      cur = Math.min(cur + step, to);
+      setProg(Math.round(cur), msg);
+      if (cur >= to) clearInterval(t);
+    }, 50);
+  }
+
+  function setGoBtn(loading, txt) {
+    const btn = document.getElementById('goBtn');
+    btn.disabled = loading;
+    btn.innerHTML = loading ? `<span class="spin"></span>${txt}` : '🔍 Analyse';
+  }
+
+  function resetUI() {
+    document.getElementById('result').classList.remove('show');
+    document.getElementById('statusMsg').classList.remove('show');
+    showProg(false);
+    setProg(0, '');
+    if (pollTimer) clearInterval(pollTimer);
+  }
+</script>
+
+</body>
+</html>

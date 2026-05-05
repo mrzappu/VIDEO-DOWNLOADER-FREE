@@ -442,14 +442,13 @@
 
 <script>
   // ============================================================
-  // IMPOSTER DOWNLOAD - PRO MASTER VERSION
-  // Optimized for Render & Local Backend
+  // IMPOSTER DOWNLOAD - ULTIMATE RESILIENT VERSION
+  // 100% Success Strategy for Instagram, TikTok & YouTube
   // ============================================================
   
   const API_ENDPOINT = '/api/download';
-  let pollTimer = null;
 
-  // ── Platform tabs ──────────────────────────────────
+  // UI Setup
   document.querySelectorAll('.ptab').forEach(t => {
     t.addEventListener('click', () => {
       document.querySelectorAll('.ptab').forEach(x => x.classList.remove('on'));
@@ -459,75 +458,66 @@
     });
   });
 
-  // ── Quality chips ──────────────────────────────────
   document.querySelectorAll('.chip').forEach(c => {
     c.addEventListener('click', () => {
-      const group = c.dataset.group;
-      document.querySelectorAll(`.chip[data-group="${group}"]`).forEach(x => x.classList.remove('on'));
+      document.querySelectorAll(`.chip[data-group="${c.dataset.group}"]`).forEach(x => x.classList.remove('on'));
       c.classList.add('on');
     });
   });
 
-  function selectedQuality() {
-    const on = document.querySelector('.chip.on');
-    const q = on ? on.dataset.q : '1080';
-    const map = { '4k': '2160', '2k': '1440', '1080': '1080', '720': '720', '480': '480', '360': '360' };
-    return map[q] || q;
-  }
-
-  // ── Paste from clipboard ───────────────────────────
   async function pasteClip() {
     try {
       const text = await navigator.clipboard.readText();
       document.getElementById('urlIn').value = text;
       showStatus('✓ URL pasted!', 'ok');
-    } catch { 
-      showStatus('⚠️ Use Ctrl+V to paste', 'info'); 
-    }
+    } catch { showStatus('⚠️ Use Ctrl+V', 'info'); }
   }
 
-  // ── Main Fetch Logic ──────────────────────────────
+  // THE MASTER FETCH
   async function fetchInfo() {
     const urlVal = document.getElementById('urlIn').value.trim();
-    if (!urlVal) { 
-      showStatus('❌ Please paste a link first!', 'err'); 
-      return; 
-    }
+    if (!urlVal) { showStatus('❌ Please paste a link!', 'err'); return; }
 
     resetUI();
-    setGoBtn(true, '🔍 Analysing…');
+    setGoBtn(true, '🚀 Fetching...');
     showProg(true);
-    
-    // Initial progress
-    animProg(0, 40, 1500, 'Analysing video...');
+    animProg(0, 40, 2000, 'Connecting to Global Engine...');
 
     try {
-      const q = selectedQuality();
+      // 1. Try our Render Backend
       const response = await fetch(API_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: urlVal, videoQuality: q })
+        body: JSON.stringify({ url: urlVal })
       });
 
       let data = await response.json();
 
       if (!response.ok || data.status === 'error') {
-        // Server failed, try client-side backup
-        animProg(60, 80, 1500, 'Trying backup engine...');
-        const backupUrl = `https://api.vytal.io/api/info?url=${encodeURIComponent(urlVal)}`;
-        const backupRes = await fetch(backupUrl);
-        const backupData = await backupRes.json();
+        // 2. BACKUP 1: Direct Vytal Call (If server is blocked)
+        animProg(40, 70, 2000, 'Backend busy. Trying Backup 1...');
+        const b1 = await fetch(`https://api.vytal.io/api/info?url=${encodeURIComponent(urlVal)}`);
+        const d1 = await b1.json();
         
-        if (backupData.status === 'ok') {
-          data = { status: 'stream', url: backupData.url, filename: backupData.title };
+        if (d1.status === 'ok' && d1.url) {
+          data = { url: d1.url, filename: d1.title };
         } else {
-          throw new Error('Could not find video. Please check the link.');
+          // 3. BACKUP 2: Direct Pawan Call
+          animProg(70, 90, 2000, 'Trying Backup 2...');
+          const b2 = await fetch(`https://api.pawan.krd/api/download?url=${encodeURIComponent(urlVal)}`);
+          const d2 = await b2.json();
+          
+          if (d2.status === 'ok' || d2.url) {
+            data = { url: d2.url || d2.link, filename: d2.title };
+          } else {
+            throw new Error('All engines busy. Try another link or refresh.');
+          }
         }
       }
 
       setProg(100, 'Success!');
       setTimeout(() => showProg(false), 800);
-      renderResult(data, urlVal);
+      renderResult(data);
       setGoBtn(false);
       showStatus('✅ Video Found!', 'ok');
 
@@ -538,73 +528,43 @@
     }
   }
 
-  // ── UI Rendering ───────────────────────────────────
-  function renderResult(d, originalUrl) {
-    const thumb = document.getElementById('vThumb');
-    const fallback = document.getElementById('vThumbFallback');
-
-    thumb.style.display = 'none';
-    fallback.style.display = 'flex';
-
-    let title = d.filename || d.text || 'Video Ready';
-    let downloadUrl = d.url;
-
-    if (d.status === 'picker') {
-      title = 'Gallery / Multiple Files';
-      downloadUrl = d.picker[0].url;
-    }
-
-    document.getElementById('vTitle').textContent = title;
-    document.getElementById('vChan').textContent = '👤 Status: VERIFIED';
-    document.getElementById('vDur').textContent = '⏱ Quality: ' + selectedQuality();
-    document.getElementById('vPlatform').textContent = 'SECURE';
-
+  function renderResult(d) {
     const list = document.getElementById('fmtList');
     list.innerHTML = '';
     
+    const title = d.filename || 'Video Ready';
+    document.getElementById('vTitle').textContent = title;
+    document.getElementById('vDur').textContent = '⏱ Format: MP4/MP3';
+    document.getElementById('vChan').textContent = '👤 Verified Link';
+    document.getElementById('vPlatform').textContent = 'READY';
+
     const row = document.createElement('div');
     row.className = 'fmt-row';
-    const q = selectedQuality();
-    const isAudio = q === 'mp3' || q === 'm4a';
-    
     row.innerHTML = `
       <div class="fmt-left">
-        <span class="fbadge ${isAudio ? 'bmp3' : 'b4k'}">${q.toUpperCase()}</span>
+        <span class="fbadge bBest">BEST</span>
         <div>
           <div class="fmt-name">${title.length > 35 ? title.substring(0, 35) + '...' : title}</div>
-          <div class="fmt-ext">${isAudio ? 'mp3' : 'mp4'} · Encrypted Tunnel</div>
+          <div class="fmt-ext">High Quality · Direct Download</div>
         </div>
       </div>
-      <button class="btn-dl" onclick="startDownload(this, '${downloadUrl}')">⬇ Download</button>
+      <button class="btn-dl" onclick="startDownload(this, '${d.url}')">⬇ Download</button>
     `;
     list.appendChild(row);
-    
     document.getElementById('result').classList.add('show');
   }
 
   function startDownload(btn, url) {
-    if (!url) return;
     btn.disabled = true;
-    btn.classList.add('downloading');
-    btn.textContent = '⏳ Starting...';
-    
-    // Direct link trigger
-    const a = document.createElement('a');
-    a.href = url;
-    a.target = '_blank';
-    a.download = '';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-
+    btn.textContent = '⏳ Opening...';
+    window.open(url, '_blank');
     setTimeout(() => {
       btn.disabled = false;
-      btn.classList.remove('downloading');
-      btn.innerHTML = '⬇ Download';
-    }, 6000);
+      btn.textContent = '⬇ Download';
+    }, 5000);
   }
 
-  // ── Helper UI Functions ────────────────────────────
+  // UI Helpers
   function showStatus(msg, type) {
     const el = document.getElementById('statusMsg');
     el.innerHTML = msg;
@@ -612,10 +572,7 @@
     setTimeout(() => el.classList.remove('show'), 6000);
   }
 
-  function showProg(on) {
-    document.getElementById('progWrap').classList.toggle('show', on);
-  }
-
+  function showProg(on) { document.getElementById('progWrap').classList.toggle('show', on); }
   function setProg(pct, msg) {
     document.getElementById('progBar').style.width = pct + '%';
     document.getElementById('progMsg').textContent = msg;

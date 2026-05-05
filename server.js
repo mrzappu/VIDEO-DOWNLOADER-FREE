@@ -4,159 +4,120 @@ const fs = require('fs');
 const path = require('path');
 const url = require('url');
 
-// Use Render's PORT or default to 3000
+// Render Port
 const PORT = process.env.PORT || 3000;
 
-// High-performance Cobalt mirrors
-const MIRRORS = [
-  'https://cobalt.canine.tools',
-  'https://cobalt.meowing.de',
-  'https://cobalt.clxxped.lol',
-  'https://cobalt.kittycat.boo',
-  'https://cobalt.liubquanti.click',
-  'https://dl.woof.monster',
-  'https://qwkuns.me',
-  'https://cobalt.cjs.nz',
-  'https://cobalt.0x51d.io',
-  'https://cobalt.api.kwi.be'
-];
-
-// Fallback APIs
-const FALLBACK_APIS = [
-  'https://api.vytal.io/api/info?url=',
-  'https://api.downloadanyvideo.com/api/info?url='
-];
-
-// Helper to make POST requests
-function postRequest(targetUrl, body) {
-  return new Promise((resolve, reject) => {
-    const parsedUrl = url.parse(targetUrl);
-    const options = {
-      hostname: parsedUrl.hostname,
-      port: 443,
-      path: parsedUrl.path === '/' ? '/' : parsedUrl.path,
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Origin': `https://${parsedUrl.hostname}`,
-        'Referer': `https://${parsedUrl.hostname}/`
-      },
-      timeout: 10000
-    };
-
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
-        try {
-          resolve({ status: res.statusCode, data: JSON.parse(data) });
-        } catch (e) {
-          reject(new Error('Invalid JSON'));
-        }
-      });
-    });
-
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
-    req.write(JSON.stringify(body));
-    req.end();
-  });
-}
-
-// Helper to make GET requests
+// HELPERS
 function getRequest(targetUrl) {
   return new Promise((resolve, reject) => {
-    https.get(targetUrl, (res) => {
+    https.get(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (res) => {
       let data = '';
-      res.on('data', (chunk) => data += chunk);
+      res.on('data', chunk => data += chunk);
       res.on('end', () => {
-        try {
-          resolve(JSON.parse(data));
-        } catch (e) {
-          reject(new Error('Invalid JSON'));
-        }
+        try { resolve(JSON.parse(data)); } catch (e) { reject(new Error('Invalid JSON')); }
       });
     }).on('error', reject);
   });
 }
 
-// Main logic to find a working download link (Ultra-Stable Version)
-async function findDownload(videoUrl) {
-  console.log(`[Server] Analysing: ${videoUrl}`);
-  
-  // High-reliability engine
-  const api = `https://api.vytal.io/api/info?url=${encodeURIComponent(videoUrl)}`;
-
-  try {
-    const result = await getRequest(api);
-    if (result.status === 'ok' || result.url) {
-      return {
-        status: 'stream',
-        url: result.url || result.data?.url,
-        filename: result.title || 'video'
-      };
-    } else {
-      throw new Error('API returned invalid status');
-    }
-  } catch (err) {
-    console.error(`[Server] Error: ${err.message}`);
-    throw new Error('Could not find video. Please check the link.');
-  }
+function postRequest(targetUrl, body) {
+  return new Promise((resolve, reject) => {
+    const parsed = url.parse(targetUrl);
+    const bodyStr = JSON.stringify(body);
+    const options = {
+      hostname: parsed.hostname,
+      port: 443,
+      path: parsed.path,
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(bodyStr),
+        'User-Agent': 'Mozilla/5.0'
+      }
+    };
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); } catch (e) { reject(new Error('Invalid JSON')); }
+      });
+    });
+    req.on('error', reject);
+    req.write(bodyStr);
+    req.end();
+  });
 }
 
-const server = http.createServer(async (req, res) => {
-  const parsedUrl = url.parse(req.url);
+// THE ULTIMATE ENGINE
+async function findDownload(videoUrl) {
+  console.log(`[Server] Searching: ${videoUrl}`);
+  
+  // Strategy 1: Vytal API (Very stable for Insta/TikTok)
+  try {
+    const res = await getRequest(`https://api.vytal.io/api/info?url=${encodeURIComponent(videoUrl)}`);
+    if (res.status === 'ok' && res.url) {
+      console.log('[Server] Success via Vytal');
+      return { url: res.url, filename: res.title || 'video' };
+    }
+  } catch(e) {}
 
-  // CORS Headers
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Accept',
-    'Content-Type': 'application/json'
-  };
+  // Strategy 2: Pawan API (Good Backup)
+  try {
+    const res = await getRequest(`https://api.pawan.krd/api/download?url=${encodeURIComponent(videoUrl)}`);
+    if (res.status === 'ok' || res.url) {
+      console.log('[Server] Success via Pawan');
+      return { url: res.url || res.link, filename: res.title || 'video' };
+    }
+  } catch(e) {}
 
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204, headers);
-    res.end();
-    return;
+  // Strategy 3: Cobalt Mirrors (Final Hope)
+  const mirrors = ['https://cobalt.canine.tools', 'https://cobalt.liubquanti.click', 'https://cobalt.meowing.de'];
+  for (const m of mirrors) {
+    try {
+      const res = await postRequest(m + '/api/json', { url: videoUrl, videoQuality: '1080' });
+      if (res.status !== 'error' && res.url) {
+        console.log(`[Server] Success via Mirror: ${m}`);
+        return { url: res.url, filename: res.filename || 'video' };
+      }
+    } catch(e) {}
   }
 
-  // API Endpoint
-  if (req.method === 'POST' && parsedUrl.pathname === '/api/download') {
+  throw new Error('All engines busy. Try another link.');
+}
+
+// SERVER
+const server = http.createServer(async (req, res) => {
+  const parsed = url.parse(req.url);
+  const cors = { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' };
+
+  if (req.method === 'POST' && parsed.pathname === '/api/download') {
     let body = '';
     req.on('data', chunk => body += chunk);
     req.on('end', async () => {
       try {
-        const params = JSON.parse(body);
-        const result = await findDownload(params.url, params.videoQuality);
-        res.writeHead(200, headers);
+        const result = await findDownload(JSON.parse(body).url);
+        res.writeHead(200, cors);
         res.end(JSON.stringify(result));
       } catch (err) {
-        res.writeHead(502, headers);
+        res.writeHead(500, cors);
         res.end(JSON.stringify({ status: 'error', error: { code: err.message } }));
       }
     });
     return;
   }
 
-  // Serve static files (HTML/CSS)
-  let filePath = path.join(__dirname, parsedUrl.pathname === '/' ? 'downloadweb.html' : parsedUrl.pathname);
-  const ext = path.extname(filePath);
-  const mimeTypes = { '.html': 'text/html', '.css': 'text/css', '.js': 'application/javascript' };
-
-  fs.readFile(filePath, (err, content) => {
-    if (err) {
-      res.writeHead(404);
-      res.end('Not found');
-    } else {
-      res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'text/plain' });
-      res.end(content);
+  // Serving static files
+  let file = path.join(__dirname, parsed.pathname === '/' ? 'downloadweb.html' : parsed.pathname);
+  fs.readFile(file, (err, data) => {
+    if (err) { res.writeHead(404); res.end(); }
+    else {
+      const ext = path.extname(file);
+      const mime = { '.html': 'text/html', '.css': 'text/css', '.js': 'application/javascript' };
+      res.writeHead(200, { 'Content-Type': mime[ext] || 'text/plain' });
+      res.end(data);
     }
   });
 });
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Master Server running on port ${PORT}`);
-});
+server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Ultimate Server on ${PORT}`));

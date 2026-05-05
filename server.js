@@ -82,50 +82,37 @@ function getRequest(targetUrl) {
   });
 }
 
-// Main logic to find a working download link
-async function findDownload(videoUrl, quality) {
-  const body = {
-    url: videoUrl,
-    videoQuality: quality || '1080',
-    downloadMode: quality === 'mp3' ? 'audio' : 'auto',
-    filenameStyle: 'basic'
-  };
+// Main logic to find a working download link (Simplified for stability)
+async function findDownload(videoUrl) {
+  console.log(`[Server] Analysing: ${videoUrl}`);
+  
+  // List of reliable, centralized API engines
+  const engines = [
+    `https://api.pawan.krd/api/download?url=${encodeURIComponent(videoUrl)}`,
+    `https://api.vytal.io/api/info?url=${encodeURIComponent(videoUrl)}`,
+    `https://api.downloadanyvideo.com/api/info?url=${encodeURIComponent(videoUrl)}`
+  ];
 
-  // Try Cobalt mirrors first
-  for (const mirror of MIRRORS) {
+  for (const api of engines) {
     try {
-      console.log(`[Server] Trying ${mirror}...`);
-      // Try root and /api/json
-      const paths = ['', '/api/json'];
-      for (const p of paths) {
-        const result = await postRequest(mirror + p, body);
-        if (result.status === 200 && result.data.status !== 'error') {
-          return result.data;
-        }
-      }
-    } catch (err) {
-      // Continue to next mirror
-    }
-  }
-
-  // Try Fallback APIs
-  for (const api of FALLBACK_APIS) {
-    try {
-      console.log(`[Server] Trying Fallback ${api}...`);
-      const result = await getRequest(api + encodeURIComponent(videoUrl));
-      if (result.status === 'ok') {
+      console.log(`[Server] Trying Engine: ${api.split('/')[2]}...`);
+      const result = await getRequest(api);
+      
+      // Handle different API response formats
+      if (result.status === 'ok' || result.success || result.url) {
+        console.log(`[Server] ✅ Success via ${api.split('/')[2]}`);
         return {
           status: 'stream',
-          url: result.url,
-          filename: result.title || 'video'
+          url: result.url || result.data?.url || result.link,
+          filename: result.title || result.filename || 'video'
         };
       }
     } catch (err) {
-      // Continue
+      console.warn(`[Server] Engine failed: ${err.message}`);
     }
   }
 
-  throw new Error('All mirrors failed');
+  throw new Error('Server busy. Please try again in a moment.');
 }
 
 const server = http.createServer(async (req, res) => {

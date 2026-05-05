@@ -499,54 +499,32 @@
     showProg(true);
     
     // Initial progress
-    animProg(0, 30, 2000, 'Connecting to Master Engine...');
+    animProg(0, 40, 1500, 'Analysing video...');
 
     try {
       const q = selectedQuality();
-      const isAudio = q === 'mp3' || q === 'm4a';
-
-      // Advanced fetch with timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s timeout
-
       const response = await fetch(API_ENDPOINT, {
         method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          url: urlVal,
-          videoQuality: isAudio ? '1080' : q,
-          downloadMode: isAudio ? 'audio' : 'auto',
-          filenameStyle: 'basic'
-        }),
-        signal: controller.signal
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: urlVal, videoQuality: q })
       });
 
-      clearTimeout(timeoutId);
       const data = await response.json();
 
       if (!response.ok || data.status === 'error') {
-        throw new Error(data?.error?.code || 'Server Error');
+        throw new Error(data?.error?.code || 'Please try another link');
       }
 
       setProg(100, 'Success!');
       setTimeout(() => showProg(false), 800);
       renderResult(data, urlVal);
       setGoBtn(false);
-      showStatus('✅ Done! Download link generated.', 'ok');
+      showStatus('✅ Video Found!', 'ok');
 
     } catch (err) {
-      console.error('Fetch Error:', err);
       setGoBtn(false);
       showProg(false);
-      
-      let msg = err.message;
-      if (msg.includes('abort') || msg.includes('timeout')) msg = 'Server Timeout. Try again.';
-      if (msg.includes('fetch')) msg = 'Network Error. Check your server.';
-      
-      showStatus('❌ ' + msg, 'err');
+      showStatus('❌ ' + err.message, 'err');
     }
   }
 

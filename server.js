@@ -1,6 +1,5 @@
 const http = require('http');
 const https = require('https');
-const zlib = require('zlib');
 const fs = require('fs');
 const path = require('path');
 const url = require('url');
@@ -8,177 +7,166 @@ const url = require('url');
 // Use Render's PORT or default to 3000
 const PORT = process.env.PORT || 3000;
 
-// High-performance Cobalt mirrors for social media (Non-YouTube focus)
+// High-performance Cobalt mirrors
 const MIRRORS = [
-  'cobalt.canine.tools',
-  'cobalt.meowing.de',
-  'cobalt.clxxped.lol',
-  'cobalt.kittycat.boo',
-  'cobalt.liubquanti.click',
-  'dl.woof.monster',
-  'qwkuns.me',
-  'cobalt.cjs.nz',
-  'cobalt.0x51d.io',
-  'cobalt.api.kwi.be'
+  'https://cobalt.canine.tools',
+  'https://cobalt.meowing.de',
+  'https://cobalt.clxxped.lol',
+  'https://cobalt.kittycat.boo',
+  'https://cobalt.liubquanti.click',
+  'https://dl.woof.monster',
+  'https://qwkuns.me',
+  'https://cobalt.cjs.nz',
+  'https://cobalt.0x51d.io',
+  'https://cobalt.api.kwi.be'
 ];
 
-// Try paths for a mirror
-function tryPaths(mirrorHost, body, res, mirrorIndex) {
-  const paths = ['/', '/api/json'];
-  let pathIndex = 0;
+// Fallback APIs
+const FALLBACK_APIS = [
+  'https://api.vytal.io/api/info?url=',
+  'https://api.downloadanyvideo.com/api/info?url='
+];
 
-  function nextPath() {
-    if (pathIndex >= paths.length) {
-      tryMirrors(body, mirrorIndex + 1, res);
-      return;
-    }
+// Helper to make POST requests
+function postRequest(targetUrl, body) {
+  return new Promise((resolve, reject) => {
+    const parsedUrl = url.parse(targetUrl);
+    const options = {
+      hostname: parsedUrl.hostname,
+      port: 443,
+      path: parsedUrl.path === '/' ? '/' : parsedUrl.path,
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Origin': `https://${parsedUrl.hostname}`,
+        'Referer': `https://${parsedUrl.hostname}/`
+      },
+      timeout: 10000
+    };
 
-    const currentPath = paths[pathIndex];
-    console.log(`[Server] Trying ${mirrorHost}${currentPath}...`);
-    
-    requestCobalt(mirrorHost, currentPath, body, (err, data) => {
-      if (err || (data && data.status === 'error')) {
-        console.warn(`[Server] ${mirrorHost}${currentPath} failed.`);
-        pathIndex++;
-        nextPath();
-      } else {
-        console.log(`[Server] ✅ Success!`);
-        res.writeHead(200, corsHeaders());
-        res.end(JSON.stringify(data));
-      }
-    });
-  }
-
-  nextPath();
-}
-
-// Low-level request with enhanced headers
-function requestCobalt(mirrorHost, apiPath, body, callback) {
-  const options = {
-    hostname: mirrorHost,
-    port: 443,
-    path: apiPath,
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-      'Content-Length': Buffer.byteLength(body),
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      'Origin': `https://${mirrorHost}`,
-      'Referer': `https://${mirrorHost}/`
-    }
-  };
-
-  const req = https.request(options, (res) => {
-    const encoding = res.headers['content-encoding'];
-    let stream = res;
-    if (encoding === 'gzip') stream = res.pipe(zlib.createGunzip());
-    else if (encoding === 'deflate') stream = res.pipe(zlib.createInflate());
-    else if (encoding === 'br') stream = res.pipe(zlib.createBrotliDecompress());
-
-    let data = '';
-    stream.on('data', chunk => data += chunk);
-    stream.on('end', () => {
-      try {
-        callback(null, JSON.parse(data));
-      } catch(e) {
-        callback(new Error(`Status ${res.statusCode}`));
-      }
-    });
-  });
-
-  req.on('error', (e) => callback(e));
-  req.setTimeout(10000, () => { req.destroy(); callback(new Error('Timeout')); });
-  req.write(body);
-  req.end();
-}
-
-function tryMirrors(body, index, res) {
-  if (index >= MIRRORS.length) {
-    // Cobalt failed, try Fallback Engine
-    console.log('[Server] ⚠️ All Cobalt mirrors failed. Trying Fallback Engine...');
-    tryFallback(body, res);
-    return;
-  }
-  tryPaths(MIRRORS[index], body, res, index);
-}
-
-// Fallback Engine (Using a different API provider)
-function tryFallback(body, res) {
-  try {
-    const data = JSON.parse(body);
-    const targetUrl = data.url;
-    
-    // Backup API: Vytal (Good for Instagram/TikTok)
-    const backupUrl = `https://api.vytal.io/api/info?url=${encodeURIComponent(targetUrl)}`;
-    
-    https.get(backupUrl, (backupRes) => {
-      let dataStr = '';
-      backupRes.on('data', chunk => dataStr += chunk);
-      backupRes.on('end', () => {
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => data += chunk);
+      res.on('end', () => {
         try {
-          const result = JSON.parse(dataStr);
-          if (result.status === 'ok') {
-            console.log('[Server] ✅ Success via Fallback Engine!');
-            res.writeHead(200, corsHeaders());
-            res.end(JSON.stringify({
-              status: 'stream',
-              url: result.url,
-              filename: result.title || 'video'
-            }));
-          } else {
-            throw new Error('Fallback failed');
-          }
+          resolve({ status: res.statusCode, data: JSON.parse(data) });
         } catch (e) {
-          res.writeHead(502, corsHeaders());
-          res.end(JSON.stringify({ status: 'error', error: { code: 'all_engines_failed' } }));
+          reject(new Error('Invalid JSON'));
         }
       });
-    }).on('error', (err) => {
-      res.writeHead(502, corsHeaders());
-      res.end(JSON.stringify({ status: 'error', error: { code: 'network_error' } }));
     });
-  } catch (e) {
-    res.writeHead(500, corsHeaders());
-    res.end(JSON.stringify({ status: 'error', error: { code: 'server_error' } }));
-  }
+
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+    req.write(JSON.stringify(body));
+    req.end();
+  });
 }
 
-function corsHeaders() {
-  return {
+// Helper to make GET requests
+function getRequest(targetUrl) {
+  return new Promise((resolve, reject) => {
+    https.get(targetUrl, (res) => {
+      let data = '';
+      res.on('data', (chunk) => data += chunk);
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(data));
+        } catch (e) {
+          reject(new Error('Invalid JSON'));
+        }
+      });
+    }).on('error', reject);
+  });
+}
+
+// Main logic to find a working download link
+async function findDownload(videoUrl, quality) {
+  const body = {
+    url: videoUrl,
+    videoQuality: quality || '1080',
+    downloadMode: quality === 'mp3' ? 'audio' : 'auto',
+    filenameStyle: 'basic'
+  };
+
+  // Try Cobalt mirrors first
+  for (const mirror of MIRRORS) {
+    try {
+      console.log(`[Server] Trying ${mirror}...`);
+      // Try root and /api/json
+      const paths = ['', '/api/json'];
+      for (const p of paths) {
+        const result = await postRequest(mirror + p, body);
+        if (result.status === 200 && result.data.status !== 'error') {
+          return result.data;
+        }
+      }
+    } catch (err) {
+      // Continue to next mirror
+    }
+  }
+
+  // Try Fallback APIs
+  for (const api of FALLBACK_APIS) {
+    try {
+      console.log(`[Server] Trying Fallback ${api}...`);
+      const result = await getRequest(api + encodeURIComponent(videoUrl));
+      if (result.status === 'ok') {
+        return {
+          status: 'stream',
+          url: result.url,
+          filename: result.title || 'video'
+        };
+      }
+    } catch (err) {
+      // Continue
+    }
+  }
+
+  throw new Error('All mirrors failed');
+}
+
+const server = http.createServer(async (req, res) => {
+  const parsedUrl = url.parse(req.url);
+
+  // CORS Headers
+  const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Accept',
     'Content-Type': 'application/json'
   };
-}
-
-const server = http.createServer((req, res) => {
-  const parsedUrl = url.parse(req.url);
 
   if (req.method === 'OPTIONS') {
-    res.writeHead(204, corsHeaders());
+    res.writeHead(204, headers);
     res.end();
     return;
   }
 
+  // API Endpoint
   if (req.method === 'POST' && parsedUrl.pathname === '/api/download') {
     let body = '';
     req.on('data', chunk => body += chunk);
-    req.on('end', () => {
-      tryMirrors(body, 0, res);
+    req.on('end', async () => {
+      try {
+        const params = JSON.parse(body);
+        const result = await findDownload(params.url, params.videoQuality);
+        res.writeHead(200, headers);
+        res.end(JSON.stringify(result));
+      } catch (err) {
+        res.writeHead(502, headers);
+        res.end(JSON.stringify({ status: 'error', error: { code: err.message } }));
+      }
     });
     return;
   }
 
-  // Serve static files (Crucial for Render)
+  // Serve static files (HTML/CSS)
   let filePath = path.join(__dirname, parsedUrl.pathname === '/' ? 'downloadweb.html' : parsedUrl.pathname);
   const ext = path.extname(filePath);
-  const mimeTypes = {
-    '.html': 'text/html',
-    '.css': 'text/css',
-    '.js': 'application/javascript'
-  };
+  const mimeTypes = { '.html': 'text/html', '.css': 'text/css', '.js': 'application/javascript' };
 
   fs.readFile(filePath, (err, content) => {
     if (err) {
@@ -192,6 +180,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🚀 Master Server running on port ${PORT}`);
 });
-

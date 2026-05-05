@@ -442,14 +442,12 @@
 
 <script>
   // ============================================================
-  // IMPOSTER DOWNLOAD - LOCAL SERVER VERSION
-  // Powered by local Node.js backend — No CORS issues!
+  // IMPOSTER DOWNLOAD - PRO MASTER VERSION
+  // Optimized for Render & Local Backend
   // ============================================================
   
-  let pollTimer = null;
-  
-  // API endpoint (works for both local and Render)
   const API_ENDPOINT = '/api/download';
+  let pollTimer = null;
 
   // ── Platform tabs ──────────────────────────────────
   document.querySelectorAll('.ptab').forEach(t => {
@@ -482,28 +480,34 @@
     try {
       const text = await navigator.clipboard.readText();
       document.getElementById('urlIn').value = text;
-      showStatus('✓ URL pasted successfully!', 'ok');
+      showStatus('✓ URL pasted!', 'ok');
     } catch { 
-      showStatus('⚠️ Press Ctrl+V to paste manually', 'info'); 
+      showStatus('⚠️ Use Ctrl+V to paste', 'info'); 
     }
   }
 
-  // ── Fetch video info ───────────────────────────────
+  // ── Main Fetch Logic ──────────────────────────────
   async function fetchInfo() {
     const urlVal = document.getElementById('urlIn').value.trim();
     if (!urlVal) { 
-      showStatus('❌ Please paste a video URL first!', 'err'); 
+      showStatus('❌ Please paste a link first!', 'err'); 
       return; 
     }
 
     resetUI();
     setGoBtn(true, '🔍 Analysing…');
     showProg(true);
-    animProg(0, 60, 2000, 'Connecting to local server...');
+    
+    // Initial progress
+    animProg(0, 30, 2000, 'Connecting to Master Engine...');
 
     try {
       const q = selectedQuality();
       const isAudio = q === 'mp3' || q === 'm4a';
+
+      // Advanced fetch with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s timeout
 
       const response = await fetch(API_ENDPOINT, {
         method: 'POST',
@@ -516,33 +520,37 @@
           videoQuality: isAudio ? '1080' : q,
           downloadMode: isAudio ? 'audio' : 'auto',
           filenameStyle: 'basic'
-        })
+        }),
+        signal: controller.signal
       });
 
+      clearTimeout(timeoutId);
       const data = await response.json();
 
       if (!response.ok || data.status === 'error') {
-        throw new Error(data?.error?.code || 'Server returned an error');
+        throw new Error(data?.error?.code || 'Server Error');
       }
 
-      setProg(100, 'Done!');
-      setTimeout(() => showProg(false), 600);
+      setProg(100, 'Success!');
+      setTimeout(() => showProg(false), 800);
       renderResult(data, urlVal);
       setGoBtn(false);
-      showStatus('✅ Video found! Click Download below.', 'ok');
+      showStatus('✅ Done! Download link generated.', 'ok');
 
     } catch (err) {
+      console.error('Fetch Error:', err);
       setGoBtn(false);
       showProg(false);
-      if (err.message.includes('fetch') || err.message.includes('Failed')) {
-        showStatus('❌ Server not running! Please start server.js first.', 'err');
-      } else {
-        showStatus('❌ ' + err.message, 'err');
-      }
+      
+      let msg = err.message;
+      if (msg.includes('abort') || msg.includes('timeout')) msg = 'Server Timeout. Try again.';
+      if (msg.includes('fetch')) msg = 'Network Error. Check your server.';
+      
+      showStatus('❌ ' + msg, 'err');
     }
   }
 
-  // ── Render result to UI ────────────────────────────
+  // ── UI Rendering ───────────────────────────────────
   function renderResult(d, originalUrl) {
     const thumb = document.getElementById('vThumb');
     const fallback = document.getElementById('vThumbFallback');
@@ -550,25 +558,21 @@
     thumb.style.display = 'none';
     fallback.style.display = 'flex';
 
-    let title = d.filename || d.text || 'Video Found';
+    let title = d.filename || d.text || 'Video Ready';
     let downloadUrl = d.url;
 
     if (d.status === 'picker') {
-      title = 'Multiple Files Detected';
+      title = 'Gallery / Multiple Files';
       downloadUrl = d.picker[0].url;
     }
 
     document.getElementById('vTitle').textContent = title;
-    document.getElementById('vChan').textContent = '👤 Status: SECURE';
+    document.getElementById('vChan').textContent = '👤 Status: VERIFIED';
     document.getElementById('vDur').textContent = '⏱ Quality: ' + selectedQuality();
-    document.getElementById('vPlatform').textContent = 'READY';
+    document.getElementById('vPlatform').textContent = 'SECURE';
 
     const list = document.getElementById('fmtList');
     list.innerHTML = '';
-    
-    const sec = document.createElement('div');
-    sec.style.cssText = 'margin-bottom:18px';
-    sec.innerHTML = `<div style="font-size:.7rem;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:10px">✨ SECURE DOWNLOAD</div>`;
     
     const row = document.createElement('div');
     row.className = 'fmt-row';
@@ -579,56 +583,49 @@
       <div class="fmt-left">
         <span class="fbadge ${isAudio ? 'bmp3' : 'b4k'}">${q.toUpperCase()}</span>
         <div>
-          <div class="fmt-name" title="${title}">${title.length > 30 ? title.substring(0, 30) + '...' : title}</div>
-          <div class="fmt-ext">${isAudio ? 'mp3' : 'mp4'} · Encrypted Stream</div>
+          <div class="fmt-name">${title.length > 35 ? title.substring(0, 35) + '...' : title}</div>
+          <div class="fmt-ext">${isAudio ? 'mp3' : 'mp4'} · Encrypted Tunnel</div>
         </div>
       </div>
       <button class="btn-dl" onclick="startDownload(this, '${downloadUrl}')">⬇ Download</button>
     `;
-    sec.appendChild(row);
-    list.appendChild(sec);
+    list.appendChild(row);
     
     document.getElementById('result').classList.add('show');
   }
 
-  // ── Download logic ─────────────────────────────────
   function startDownload(btn, url) {
     if (!url) return;
     btn.disabled = true;
     btn.classList.add('downloading');
-    btn.textContent = '⏳ Processing...';
+    btn.textContent = '⏳ Starting...';
     
-    // Secure direct download trigger
-    const link = document.createElement('a');
-    link.href = url;
-    link.target = '_blank';
-    link.download = '';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Direct link trigger
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 
     setTimeout(() => {
       btn.disabled = false;
       btn.classList.remove('downloading');
       btn.innerHTML = '⬇ Download';
-    }, 5000);
+    }, 6000);
   }
 
-  // ── Helper Functions ───────────────────────────────
+  // ── Helper UI Functions ────────────────────────────
   function showStatus(msg, type) {
     const el = document.getElementById('statusMsg');
     el.innerHTML = msg;
     el.className = `status-msg show ${type}`;
-    setTimeout(() => {
-      if (el.innerHTML === msg) {
-        setTimeout(() => el.classList.remove('show'), 3000);
-      }
-    }, 5000);
+    setTimeout(() => el.classList.remove('show'), 6000);
   }
 
   function showProg(on) {
     document.getElementById('progWrap').classList.toggle('show', on);
-    if (!on) setProg(0, '');
   }
 
   function setProg(pct, msg) {
@@ -638,13 +635,13 @@
   }
 
   function animProg(from, to, ms, msg) {
-    const step = (to - from) / (ms / 80);
+    const step = (to - from) / (ms / 100);
     let cur = from;
     const t = setInterval(() => {
       cur = Math.min(cur + step, to);
       setProg(Math.round(cur), msg);
       if (cur >= to) clearInterval(t);
-    }, 80);
+    }, 100);
   }
 
   function setGoBtn(loading, txt) {
@@ -657,8 +654,6 @@
     document.getElementById('result').classList.remove('show');
     document.getElementById('statusMsg').classList.remove('show');
     showProg(false);
-    setProg(0, '');
-    if (pollTimer) clearInterval(pollTimer);
   }
 
   function faq(el) {

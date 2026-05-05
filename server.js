@@ -95,11 +95,53 @@ function requestCobalt(mirrorHost, apiPath, body, callback) {
 
 function tryMirrors(body, index, res) {
   if (index >= MIRRORS.length) {
-    res.writeHead(502, corsHeaders());
-    res.end(JSON.stringify({ status: 'error', error: { code: 'all_mirrors_failed' } }));
+    // Cobalt failed, try Fallback Engine
+    console.log('[Server] ⚠️ All Cobalt mirrors failed. Trying Fallback Engine...');
+    tryFallback(body, res);
     return;
   }
   tryPaths(MIRRORS[index], body, res, index);
+}
+
+// Fallback Engine (Using a different API provider)
+function tryFallback(body, res) {
+  try {
+    const data = JSON.parse(body);
+    const targetUrl = data.url;
+    
+    // Backup API: Vytal (Good for Instagram/TikTok)
+    const backupUrl = `https://api.vytal.io/api/info?url=${encodeURIComponent(targetUrl)}`;
+    
+    https.get(backupUrl, (backupRes) => {
+      let dataStr = '';
+      backupRes.on('data', chunk => dataStr += chunk);
+      backupRes.on('end', () => {
+        try {
+          const result = JSON.parse(dataStr);
+          if (result.status === 'ok') {
+            console.log('[Server] ✅ Success via Fallback Engine!');
+            res.writeHead(200, corsHeaders());
+            res.end(JSON.stringify({
+              status: 'stream',
+              url: result.url,
+              filename: result.title || 'video'
+            }));
+          } else {
+            throw new Error('Fallback failed');
+          }
+        } catch (e) {
+          res.writeHead(502, corsHeaders());
+          res.end(JSON.stringify({ status: 'error', error: { code: 'all_engines_failed' } }));
+        }
+      });
+    }).on('error', (err) => {
+      res.writeHead(502, corsHeaders());
+      res.end(JSON.stringify({ status: 'error', error: { code: 'network_error' } }));
+    });
+  } catch (e) {
+    res.writeHead(500, corsHeaders());
+    res.end(JSON.stringify({ status: 'error', error: { code: 'server_error' } }));
+  }
 }
 
 function corsHeaders() {

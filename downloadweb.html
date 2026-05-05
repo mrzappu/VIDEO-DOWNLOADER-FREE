@@ -509,10 +509,20 @@
         body: JSON.stringify({ url: urlVal, videoQuality: q })
       });
 
-      const data = await response.json();
+      let data = await response.json();
 
       if (!response.ok || data.status === 'error') {
-        throw new Error(data?.error?.code || 'Please try another link');
+        // Server failed, try client-side backup
+        animProg(60, 80, 1500, 'Trying backup engine...');
+        const backupUrl = `https://api.vytal.io/api/info?url=${encodeURIComponent(urlVal)}`;
+        const backupRes = await fetch(backupUrl);
+        const backupData = await backupRes.json();
+        
+        if (backupData.status === 'ok') {
+          data = { status: 'stream', url: backupData.url, filename: backupData.title };
+        } else {
+          throw new Error('Could not find video. Please check the link.');
+        }
       }
 
       setProg(100, 'Success!');

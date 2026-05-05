@@ -82,37 +82,28 @@ function getRequest(targetUrl) {
   });
 }
 
-// Main logic to find a working download link (Simplified for stability)
+// Main logic to find a working download link (Ultra-Stable Version)
 async function findDownload(videoUrl) {
   console.log(`[Server] Analysing: ${videoUrl}`);
   
-  // List of reliable, centralized API engines
-  const engines = [
-    `https://api.pawan.krd/api/download?url=${encodeURIComponent(videoUrl)}`,
-    `https://api.vytal.io/api/info?url=${encodeURIComponent(videoUrl)}`,
-    `https://api.downloadanyvideo.com/api/info?url=${encodeURIComponent(videoUrl)}`
-  ];
+  // High-reliability engine
+  const api = `https://api.vytal.io/api/info?url=${encodeURIComponent(videoUrl)}`;
 
-  for (const api of engines) {
-    try {
-      console.log(`[Server] Trying Engine: ${api.split('/')[2]}...`);
-      const result = await getRequest(api);
-      
-      // Handle different API response formats
-      if (result.status === 'ok' || result.success || result.url) {
-        console.log(`[Server] ✅ Success via ${api.split('/')[2]}`);
-        return {
-          status: 'stream',
-          url: result.url || result.data?.url || result.link,
-          filename: result.title || result.filename || 'video'
-        };
-      }
-    } catch (err) {
-      console.warn(`[Server] Engine failed: ${err.message}`);
+  try {
+    const result = await getRequest(api);
+    if (result.status === 'ok' || result.url) {
+      return {
+        status: 'stream',
+        url: result.url || result.data?.url,
+        filename: result.title || 'video'
+      };
+    } else {
+      throw new Error('API returned invalid status');
     }
+  } catch (err) {
+    console.error(`[Server] Error: ${err.message}`);
+    throw new Error('Could not find video. Please check the link.');
   }
-
-  throw new Error('Server busy. Please try again in a moment.');
 }
 
 const server = http.createServer(async (req, res) => {

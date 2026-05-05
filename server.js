@@ -14,39 +14,37 @@ async function scrapeInstagram(videoUrl) {
   try {
     console.log(`[Scraper] Analysing: ${videoUrl}`);
     
-    // Fetch the page with a browser-like User-Agent
-    const response = await axios.get(videoUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5'
+    // Method 1: Vytal API (Most stable for Render)
+    try {
+      const res = await axios.get(`https://api.vytal.io/api/info?url=${encodeURIComponent(videoUrl)}`);
+      if (res.data && res.data.url) {
+        console.log('[Scraper] Method 1 Success');
+        return { url: res.data.url, filename: res.data.title || 'Instagram Media' };
       }
+    } catch(e) { console.log('[Scraper] Method 1 Failed'); }
+
+    // Method 2: Pawan API
+    try {
+      const res = await axios.get(`https://api.pawan.krd/api/download?url=${encodeURIComponent(videoUrl)}`);
+      if (res.data && (res.data.url || res.data.link)) {
+        console.log('[Scraper] Method 2 Success');
+        return { url: res.data.url || res.data.link, filename: res.data.title || 'Instagram Media' };
+      }
+    } catch(e) { console.log('[Scraper] Method 2 Failed'); }
+
+    // Method 3: Direct Meta Extraction (Fallback)
+    const response = await axios.get(videoUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36' }
     });
-
     const $ = cheerio.load(response.data);
-    
-    // Look for video or image in meta tags
-    const video = $('meta[property="og:video"]').attr('content') || 
-                  $('meta[property="og:video:secure_url"]').attr('content');
-    
+    const video = $('meta[property="og:video"]').attr('content');
     const image = $('meta[property="og:image"]').attr('content');
-    const title = $('meta[property="og:title"]').attr('content') || 'Instagram Media';
+    
+    if (video) return { url: video, filename: 'Instagram Video' };
+    if (image) return { url: image, filename: 'Instagram Photo' };
 
-    if (video) {
-      return { url: video, filename: title, type: 'video' };
-    } else if (image) {
-      return { url: image, filename: title, type: 'image' };
-    }
-
-    // Fallback if meta tags fail: Try Vevioz Proxy (Internal)
-    const backupRes = await axios.get(`https://api.vytal.io/api/info?url=${encodeURIComponent(videoUrl)}`);
-    if (backupRes.data && backupRes.data.url) {
-      return { url: backupRes.data.url, filename: backupRes.data.title || title };
-    }
-
-    throw new Error('Could not find media link.');
+    throw new Error('All methods failed. Please check if the link is public.');
   } catch (err) {
-    console.error(`[Scraper] Error: ${err.message}`);
     throw err;
   }
 }

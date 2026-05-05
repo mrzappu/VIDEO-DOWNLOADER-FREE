@@ -99,14 +99,17 @@
       const url = urlIn.value.trim();
       if (!url) {
         status.textContent = '❌ Please paste a link first!';
+        status.style.display = 'block';
         status.className = 'status err';
         return;
       }
 
       // UI State
       goBtn.disabled = true;
-      goBtn.innerHTML = '<span class="spin"></span>Fetching...';
-      status.style.display = 'none';
+      goBtn.innerHTML = '<span class="spin"></span>Searching...';
+      status.style.display = 'block';
+      status.textContent = '📡 Connecting to master engine...';
+      status.className = 'status ok';
       result.style.display = 'none';
 
       try {
@@ -119,13 +122,13 @@
         const data = await response.json();
 
         if (!response.ok || data.status === 'error') {
-          throw new Error(data.message || 'Failed to fetch media.');
+          throw new Error(data.message || 'Server error. Try again.');
         }
 
         // Success
         dlLink.href = data.url;
         result.style.display = 'block';
-        status.textContent = '✅ Media ready to download!';
+        status.textContent = '✅ Media found! Click below to download.';
         status.className = 'status ok';
 
       } catch (err) {

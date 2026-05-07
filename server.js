@@ -48,6 +48,12 @@ function ytDlpCookieArgs() {
   return [];
 }
 
+// YouTube on some cloud IPs often blocks the default web client.
+// Using android client improves reliability (still requires valid cookies in some cases).
+function ytDlpYoutubeArgs() {
+  return ["--extractor-args", "youtube:player_client=android"];
+}
+
 function baseUrl(req) {
   const proto = (req.headers["x-forwarded-proto"] || req.protocol || "http").toString();
   const host = req.headers["x-forwarded-host"] || req.headers.host;
@@ -65,7 +71,15 @@ function htmlEscape(s) {
 
 function runYtDlpJson(url, extraArgs = []) {
   return new Promise((resolve, reject) => {
-    const args = ["-J", "--no-warnings", "--skip-download", ...ytDlpCookieArgs(), ...extraArgs, url];
+    const args = [
+      "-J",
+      "--no-warnings",
+      "--skip-download",
+      ...ytDlpCookieArgs(),
+      ...ytDlpYoutubeArgs(),
+      ...extraArgs,
+      url
+    ];
     const p = spawn("yt-dlp", args, { stdio: ["ignore", "pipe", "pipe"] });
     let out = "";
     let err = "";
@@ -179,6 +193,7 @@ function startJob({ id, url, title, ext }) {
       url,
       "--no-playlist",
       ...ytDlpCookieArgs(),
+      ...ytDlpYoutubeArgs(),
       "-x",
       "--audio-format",
       "mp3",
@@ -199,6 +214,7 @@ function startJob({ id, url, title, ext }) {
     url,
     "--no-playlist",
     ...ytDlpCookieArgs(),
+    ...ytDlpYoutubeArgs(),
     "-f",
     "bestvideo+bestaudio/best",
     "--merge-output-format",
@@ -210,6 +226,7 @@ function startJob({ id, url, title, ext }) {
     url,
     "--no-playlist",
     ...ytDlpCookieArgs(),
+    ...ytDlpYoutubeArgs(),
     "-f",
     "best[ext=mp4]/best",
     "--merge-output-format",
@@ -221,6 +238,7 @@ function startJob({ id, url, title, ext }) {
     url,
     "--no-playlist",
     ...ytDlpCookieArgs(),
+    ...ytDlpYoutubeArgs(),
     "-f",
     "best",
     "--recode-video",

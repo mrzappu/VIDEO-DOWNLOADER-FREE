@@ -76,10 +76,14 @@ function runYtDlpJson(url, extraArgs = []) {
       "-J",
       "--no-warnings",
       "--skip-download",
+      "--no-check-certificate",
+      "--geo-bypass",
+      "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
       ...ytDlpCookieArgs(url),
       ...extraArgs,
       url
     ];
+
     const p = spawn("yt-dlp", args, { stdio: ["ignore", "pipe", "pipe"] });
     let out = "";
     let err = "";
@@ -196,8 +200,12 @@ function startJob({ id, url, title, ext, format }) {
     const args = [
       url,
       "--no-playlist",
+      "--no-check-certificate",
+      "--geo-bypass",
+      "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
       ...ytDlpCookieArgs(url),
       "-x",
+
       "--audio-format",
       "mp3",
       "--audio-quality",
@@ -214,6 +222,9 @@ function startJob({ id, url, title, ext, format }) {
     const args = [
       url,
       "--no-playlist",
+      "--no-check-certificate",
+      "--geo-bypass",
+      "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
       ...ytDlpCookieArgs(url),
       "-f",
       format || "best",
@@ -232,6 +243,9 @@ function startJob({ id, url, title, ext, format }) {
   const attempt = [
     url,
     "--no-playlist",
+    "--no-check-certificate",
+    "--geo-bypass",
+    "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
     ...ytDlpCookieArgs(url),
     "-f",
     selected,

@@ -1,8 +1,5 @@
 {
   "version": 2,
-  "builds": [
-    { "src": "index.html", "use": "@vercel/static" }
-  ],
   "routes": [
     { "src": "^/mates/(.*)$", "dest": "https://video-downloader-free.onrender.com/mates/$1" },
     { "src": "^/downloads/(.*)$", "dest": "https://video-downloader-free.onrender.com/downloads/$1" },

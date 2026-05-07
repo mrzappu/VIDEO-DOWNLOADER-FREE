@@ -223,7 +223,12 @@ function startJob({ id, url, title, ext, format }) {
   runAttempt(attempt);
 }
 
-app.get("/", (req, res) => res.status(200).send("OK"));
+app.use(express.static(process.cwd()));
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(process.cwd(), "index.html"));
+});
+
 app.get("/healthz", async (req, res) => {
   // Simple diagnostics to confirm yt-dlp exists (useful on Render)
   try {

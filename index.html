@@ -5,7 +5,128 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IMPOSTER | Ultimate Video Downloader</title>
     <meta name="description" content="Download videos from YouTube, Instagram, Facebook, and more in high quality with IMPOSTER Video Downloader.">
-    <link rel="stylesheet" href="style.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
+
+        :root {
+            --bg-dark: #050b1a;
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --primary-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            --accent-color: #818cf8;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            line-height: 1.6;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        .bg-blobs {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1; filter: blur(80px); opacity: 0.4;
+        }
+
+        .blob { position: absolute; width: 400px; height: 400px; border-radius: 50%; }
+        .blob-1 { background: #4f46e5; top: -100px; left: -100px; animation: float 20s infinite alternate; }
+        .blob-2 { background: #7c3aed; bottom: -100px; right: -100px; animation: float 25s infinite alternate-reverse; }
+
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(50px, 50px) scale(1.1); }
+        }
+
+        header { padding: 3rem 1rem; text-align: center; }
+        .brand {
+            font-size: 3rem; font-weight: 800; letter-spacing: -0.05em;
+            background: var(--primary-gradient); -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent; margin-bottom: 0.5rem;
+        }
+        .subtitle { color: var(--text-muted); font-size: 1.1rem; }
+
+        .container { max-width: 800px; margin: 0 auto; padding: 0 1.5rem 4rem; }
+        .glass-card {
+            background: var(--card-bg); backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border); border-radius: 24px;
+            padding: 2.5rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .input-wrapper { margin-bottom: 1.5rem; }
+        .main-input {
+            width: 100%; background: rgba(0, 0, 0, 0.3);
+            border: 2px solid var(--glass-border); border-radius: 16px;
+            padding: 1.2rem 1.5rem; color: #fff; font-size: 1.1rem;
+            outline: none; transition: all 0.3s ease;
+        }
+        .main-input:focus { border-color: var(--accent-color); box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.2); }
+
+        .btn-download {
+            width: 100%; background: var(--primary-gradient); border: none;
+            border-radius: 16px; padding: 1.2rem; color: white;
+            font-size: 1.2rem; font-weight: 600; cursor: pointer;
+            transition: all 0.3s ease; box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.4);
+        }
+        .btn-download:hover { transform: translateY(-2px); box-shadow: 0 20px 25px -5px rgba(99, 102, 241, 0.5); }
+        .btn-download:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .platforms { display: flex; justify-content: center; gap: 1.5rem; margin-top: 3rem; flex-wrap: wrap; }
+        .platform-icon { width: 32px; height: 32px; opacity: 0.5; transition: opacity 0.3s; }
+        .platform-icon:hover { opacity: 1; }
+
+        .result-container { margin-top: 2.5rem; animation: slideUp 0.5s ease-out; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        .video-info { display: flex; gap: 1.5rem; margin-bottom: 2rem; align-items: center; }
+        .thumbnail { width: 140px; height: 80px; border-radius: 12px; object-fit: cover; border: 1px solid var(--glass-border); }
+        .video-details h3 { font-size: 1.1rem; margin-bottom: 0.2rem; color: var(--text-main); }
+
+        .format-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem; }
+        .format-item {
+            background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border);
+            border-radius: 16px; padding: 1.2rem; text-align: center;
+            cursor: pointer; transition: all 0.2s ease;
+        }
+        .format-item:hover { background: rgba(255, 255, 255, 0.08); border-color: var(--accent-color); transform: translateY(-2px); }
+        .format-res { font-weight: 700; font-size: 1.1rem; display: block; margin-bottom: 2px; }
+        .format-ext { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+        .format-size { font-size: 0.8rem; color: var(--accent-color); margin-top: 4px; display: block; }
+
+        .progress-section { margin-top: 2rem; }
+        .progress-bar-container { height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 10px; overflow: hidden; margin-bottom: 0.8rem; }
+        .progress-bar-fill { height: 100%; background: var(--primary-gradient); width: 0%; transition: width 0.4s ease; }
+        .status-text { font-size: 0.9rem; color: var(--text-muted); text-align: center; }
+
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(10px);
+            display: none; justify-content: center; align-items: center; z-index: 1000;
+        }
+        .modal-content {
+            background: #0a0f1e; border: 1px solid var(--glass-border);
+            border-radius: 28px; padding: 3rem; max-width: 420px; width: 90%; text-align: center;
+        }
+        .modal-btn {
+            display: block; background: var(--primary-gradient); color: white;
+            text-decoration: none; padding: 1.2rem; border-radius: 16px;
+            font-weight: 700; margin-top: 2rem; transition: transform 0.2s;
+            box-shadow: 0 10px 20px -5px rgba(99, 102, 241, 0.5);
+        }
+        .modal-btn:hover { transform: scale(1.02); }
+
+        @media (max-width: 600px) {
+            .video-info { flex-direction: column; text-align: center; }
+            .thumbnail { width: 100%; height: 180px; }
+            .brand { font-size: 2.2rem; }
+            .glass-card { padding: 1.5rem; }
+        }
+    </style>
 </head>
 <body>
     <div class="bg-blobs">
@@ -15,13 +136,13 @@
 
     <header>
         <h1 class="brand">IMPOSTER</h1>
-        <p class="subtitle">Ultimate Video & Image Downloader</p>
+        <p class="subtitle">Ultimate Multi-Platform Downloader</p>
     </header>
 
     <main class="container">
         <div class="glass-card">
             <div class="input-wrapper">
-                <input type="text" id="txt-url" class="main-input" placeholder="Paste link here (YouTube, Insta, FB...)" autocomplete="off">
+                <input type="text" id="txt-url" class="main-input" placeholder="Paste link from YouTube, Insta, FB..." autocomplete="off">
             </div>
             <button id="btn-submit" class="btn-download">Analyze Link</button>
 
@@ -32,43 +153,32 @@
                 <p id="status-text" class="status-text">Processing...</p>
             </div>
 
-            <div id="result-area" class="result-container" style="display: none;">
-                <!-- Result will be injected here -->
-            </div>
+            <div id="result-area" class="result-container" style="display: none;"></div>
         </div>
 
         <div class="platforms">
-            <!-- YouTube -->
             <svg class="platform-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
-            <!-- Instagram -->
             <svg class="platform-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.981 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/></svg>
-            <!-- Facebook -->
             <svg class="platform-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-            <!-- Twitter -->
-            <svg class="platform-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.84 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
         </div>
     </main>
 
-    <!-- Modal -->
     <div id="download-modal" class="modal-overlay">
         <div class="modal-content">
-            <h2 id="modal-title" style="margin-bottom: 1rem;">Ready!</h2>
-            <p id="modal-desc" style="color: var(--text-muted);">Your file is ready for download.</p>
+            <h2 id="modal-title" style="margin-bottom: 0.5rem;">Ready!</h2>
+            <p id="modal-desc" style="color: var(--text-muted); font-size: 0.9rem;">Your high-quality file is prepared.</p>
             <a id="btn-final-download" href="#" class="modal-btn" target="_blank">Download Now</a>
-            <button onclick="closeModal()" style="display: block; margin: 1rem auto 0; background: none; border: none; color: var(--text-muted); cursor: pointer;">Close</button>
+            <button onclick="closeModal()" style="display: block; margin: 1.5rem auto 0; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.9rem;">Maybe Later</button>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
     <script>
-        let currentJobId = null;
         let isBusy = false;
         let checkStatusInterval = null;
 
-        const API_BASE = ""; // Same domain
-
         function formatSize(bytes) {
-            if (!bytes) return "Unknown size";
+            if (!bytes || bytes < 1) return "Auto Size";
             const mb = bytes / (1024 * 1024);
             return mb.toFixed(1) + " MB";
         }
@@ -91,14 +201,19 @@
                     dataType: "json"
                 });
 
+                // Fallback for old backend output
+                if (response.status === "success" && !response.data && response.result) {
+                    $("#result-area").html('<div style="padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 12px; border: 1px solid var(--glass-border);">' + response.result + '</div>').fadeIn();
+                    return;
+                }
+
                 if (response.status === "success" && response.data) {
                     renderResult(response.data);
                 } else {
-                    alert(response.result || "Analysis failed. Please try another link.");
+                    alert("Analysis failed. Please try a different link.");
                 }
             } catch (error) {
-                console.error(error);
-                alert("Server error. Please try again later.");
+                alert("Connection error. Ensure the backend is active.");
             } finally {
                 isBusy = false;
                 $("#btn-submit").prop("disabled", false).text("Analyze Link");
@@ -117,35 +232,29 @@
             `).join("");
 
             if (formats.length === 0) {
-                formatsHtml = `
-                    <div class="format-item" onclick="startDownload('${url}', '${title.replace(/'/g, "\\'")}', '${id}', 'mp4', 'best')">
-                        <span class="format-res">Best Quality</span>
-                        <span class="format-ext">MP4</span>
-                        <span class="format-size">Auto-detect</span>
-                    </div>
-                `;
+                formatsHtml = `<div class="format-item" onclick="startDownload('${url}', '${title.replace(/'/g, "\\'")}', '${id}', 'mp4', 'best')">
+                    <span class="format-res">Highest Quality</span>
+                    <span class="format-ext">MP4</span>
+                    <span class="format-size">Direct</span>
+                </div>`;
             }
 
-            // Also add MP3 option
-            formatsHtml += `
-                <div class="format-item" style="border-color: #ec4899;" onclick="startDownload('${url}', '${title.replace(/'/g, "\\'")}', '${id}', 'mp3', 'bestaudio')">
-                    <span class="format-res">Audio Only</span>
-                    <span class="format-ext">MP3</span>
-                    <span class="format-size">Best Quality</span>
-                </div>
-            `;
+            // Audio option
+            formatsHtml += `<div class="format-item" style="border-color: #f472b6;" onclick="startDownload('${url}', '${title.replace(/'/g, "\\'")}', '${id}', 'mp3', 'bestaudio')">
+                <span class="format-res">Audio MP3</span>
+                <span class="format-ext">320kbps</span>
+                <span class="format-size">Best</span>
+            </div>`;
 
             const html = `
                 <div class="video-info">
-                    ${thumbnail ? `<img src="${thumbnail}" class="thumbnail" alt="thumbnail">` : ""}
+                    ${thumbnail ? `<img src="${thumbnail}" class="thumbnail" alt="thumb">` : ""}
                     <div class="video-details">
                         <h3>${title}</h3>
-                        <p style="color: var(--text-muted); font-size: 0.9rem;">Choose a resolution to start downloading</p>
+                        <p style="color: var(--text-muted); font-size: 0.85rem;">Select your preferred format below</p>
                     </div>
                 </div>
-                <div class="format-grid">
-                    ${formatsHtml}
-                </div>
+                <div class="format-grid">${formatsHtml}</div>
             `;
 
             $("#result-area").html(html).fadeIn();
@@ -154,29 +263,20 @@
         function startDownload(url, title, id, ext, format) {
             if (isBusy) return;
             isBusy = true;
-            currentJobId = id;
-
             $("#progress-area").show();
             $("#progressbar-fill").css("width", "0%");
-            $("#status-text").text("Initializing download...");
+            $("#status-text").text("Starting process...");
 
             $.ajax({
                 type: "POST",
-                url: `/mates/en/convert?id=${encodeURIComponent(id)}`,
+                url: "/mates/en/convert?id=" + encodeURIComponent(id),
                 data: { url, title, id, ext, format },
                 dataType: "json",
                 success: (res) => {
-                    if (res.status === "processing") {
-                        pollStatus(id);
-                    } else {
-                        alert("Download failed to start.");
-                        isBusy = false;
-                    }
+                    if (res.status === "processing") pollStatus(id);
+                    else { alert("Could not start conversion."); isBusy = false; }
                 },
-                error: () => {
-                    alert("Error starting download.");
-                    isBusy = false;
-                }
+                error: () => { alert("Error connecting to converter."); isBusy = false; }
             });
         }
 
@@ -185,7 +285,7 @@
                 try {
                     const res = await $.ajax({
                         type: "POST",
-                        url: `/mates/en/convert/status?id=${encodeURIComponent(id)}`,
+                        url: "/mates/en/convert/status?id=" + encodeURIComponent(id),
                         dataType: "json"
                     });
 
@@ -197,26 +297,21 @@
                         updateProgressUI(res.type, res.percent);
                     } else {
                         clearInterval(checkStatusInterval);
-                        alert("An error occurred during processing.");
+                        alert("Process interrupted.");
                         isBusy = false;
                     }
-                } catch (e) {
-                    clearInterval(checkStatusInterval);
-                    isBusy = false;
-                }
-            }, 2000);
+                } catch (e) { clearInterval(checkStatusInterval); isBusy = false; }
+            }, 2500);
         }
 
         function updateProgressUI(type, percent) {
             let label = "Processing...";
-            if (type === "downloading") label = `Downloading... ${percent || "0%"}`;
-            else if (type === "converting") label = "Converting format...";
-            else if (type === "merging") label = "Merging files...";
+            if (type === "downloading") label = "Downloading " + (percent || "0%");
+            else if (type === "converting") label = "Converting Format...";
+            else if (type === "merging") label = "Merging Streams...";
             
             $("#status-text").text(label);
-            if (percent) {
-                $("#progressbar-fill").css("width", percent);
-            }
+            if (percent) $("#progressbar-fill").css("width", percent);
         }
 
         function showFinalDownload(url) {
@@ -225,15 +320,11 @@
             $("#download-modal").css("display", "flex");
         }
 
-        function closeModal() {
-            $("#download-modal").hide();
-        }
+        function closeModal() { $("#download-modal").hide(); }
 
         $(document).ready(() => {
             $("#btn-submit").click(analyze);
-            $("#txt-url").keypress((e) => {
-                if (e.which == 13) analyze();
-            });
+            $("#txt-url").keypress((e) => { if (e.which == 13) analyze(); });
         });
     </script>
 </body>

@@ -354,10 +354,13 @@ app.post("/mates/en/convert", (req, res) => {
   const ext = (req.body?.ext || "mp4").toString();
   const format = (req.body?.format || "").toString();
 
+  console.log(`[CONVERT] id=${id} ext=${ext} format=${format} url=${url.slice(0, 50)}...`);
+
   if (!id || !url) return res.json({ status: "unsupported_url" });
   if (!jobs.has(id)) startJob({ id, url, title, ext, format });
   return res.json({ status: "processing" });
 });
+
 
 app.post("/mates/en/convert/status", (req, res) => {
   const id = (req.query?.id || "").toString();

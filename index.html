@@ -297,19 +297,26 @@
 
 
         function startDownload(url, title, id, ext, format) {
+            // Generate a unique sub-id for this specific format request to avoid job collisions
+            const uniqueId = id + "_" + btoa(format).replace(/=/g, "").slice(-8);
+            console.log(`[DOWNLOAD] Starting: ${title} | Ext: ${ext} | Format: ${format} | Job: ${uniqueId}`);
+            
             if (isBusy) return;
             isBusy = true;
+            currentJobId = uniqueId;
+
+            
             $("#progress-area").show();
             $("#progressbar-fill").css("width", "0%");
             $("#status-text").text("Starting process...");
 
             $.ajax({
                 type: "POST",
-                url: "/mates/en/convert?id=" + encodeURIComponent(id),
-                data: { url, title, id, ext, format },
+                url: "/mates/en/convert?id=" + encodeURIComponent(uniqueId),
+                data: { url, title, id: uniqueId, ext, format },
                 dataType: "json",
                 success: (res) => {
-                    if (res.status === "processing") pollStatus(id);
+                    if (res.status === "processing") pollStatus(uniqueId);
                     else { alert("Could not start conversion."); isBusy = false; }
                 },
                 error: () => { alert("Error connecting to converter."); isBusy = false; }

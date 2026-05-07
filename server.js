@@ -32,9 +32,9 @@ function htmlEscape(s) {
     .replaceAll("'", "&#39;");
 }
 
-function runYtDlpJson(url) {
+function runYtDlpJson(url, extraArgs = []) {
   return new Promise((resolve, reject) => {
-    const args = ["-J", "--no-warnings", "--skip-download", url];
+    const args = ["-J", "--no-warnings", "--skip-download", ...extraArgs, url];
     const p = spawn("yt-dlp", args, { stdio: ["ignore", "pipe", "pipe"] });
     let out = "";
     let err = "";
@@ -48,7 +48,7 @@ function runYtDlpJson(url) {
           reject(new Error("yt-dlp JSON parse error"));
         }
       } else {
-        reject(new Error(err || "yt-dlp failed"));
+        reject(new Error((err || "yt-dlp failed").slice(0, 2000)));
       }
     });
   });
@@ -146,6 +146,19 @@ function startJob({ id, url, title, ext }) {
 }
 
 app.get("/", (req, res) => res.status(200).send("OK"));
+app.get("/healthz", async (req, res) => {
+  // Simple diagnostics to confirm yt-dlp exists (useful on Render)
+  try {
+    const p = spawn("yt-dlp", ["--version"], { stdio: ["ignore", "pipe", "pipe"] });
+    let out = "";
+    p.stdout.on("data", (d) => (out += d.toString()));
+    p.on("close", (code) => {
+      res.status(200).json({ ok: true, yt_dlp_version: out.trim(), code });
+    });
+  } catch (e) {
+    res.status(200).json({ ok: false, error: String(e?.message || e) });
+  }
+});
 
 app.post("/mates/en/analyze/ajax", async (req, res) => {
   try {
@@ -154,7 +167,13 @@ app.post("/mates/en/analyze/ajax", async (req, res) => {
       return res.json({ status: "unavailable", result: "<div class='alert alert-danger'>Empty URL</div>" });
     }
 
-    const info = await runYtDlpJson(url);
+    let info;
+    try {
+      info = await runYtDlpJson(url);
+    } catch (e1) {
+      // Fallback for YouTube breakages: try android client
+      info = await runYtDlpJson(url, ["--extractor-args", "youtube:player_client=android"]);
+    }
     const title = info?.title || "Video";
     const id = crypto.randomBytes(8).toString("hex");
 
@@ -169,10 +188,14 @@ app.post("/mates/en/analyze/ajax", async (req, res) => {
       `</div>`;
 
     return res.json({ status: "success", result: html });
-  } catch {
+  } catch (e) {
     return res.json({
       status: "unavailable",
-      result: "<div class='alert alert-danger text-center'>Service is wrong, Please try again later</div>"
+      result:
+        "<div class='alert alert-danger text-center'>Service is wrong, Please try again later</div>" +
+        "<div class='small text-muted text-center mt-2'>Backend error: " +
+        htmlEscape(String(e?.message || e)).slice(0, 300) +
+        "</div>"
     });
   }
 });
@@ -225,4 +248,3 @@ setInterval(() => {
 
 const PORT = Number(process.env.PORT || 3000);
 app.listen(PORT, () => console.log(`Backend running on :${PORT}`));
-

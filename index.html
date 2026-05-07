@@ -99,8 +99,10 @@
 
   <script>
     // API base (optional). If empty, requests go to same domain (recommended with Vercel rewrites).
+    const FALLBACK_BACKEND = "https://video-downloader-free.onrender.com";
     const API_BASE = (window.API_BASE ? String(window.API_BASE).replace(/\/+$/, "") : "");
-    document.getElementById("api-hint").textContent = API_BASE ? ("API: " + API_BASE) : "";
+    let ACTIVE_API_BASE = API_BASE; // can switch to fallback if Vercel proxy fails
+    document.getElementById("api-hint").textContent = ACTIVE_API_BASE ? ("API: " + ACTIVE_API_BASE) : "";
 
     let a_busy = false;
     let downloadUrl = {"mp3": {}, "mp4": {}};
@@ -110,6 +112,11 @@
     let count = 1;
     let lang = "en";
     let cftoken = ""; // Turnstile removed
+
+    function hideAllWait() {
+      $("#result-wait").hide();
+      $("#result-wait-1,#result-wait-2,#result-wait-3,#result-wait-4,#result-wait-5,#result-wait-6,#result-wait-7").hide();
+    }
 
     function initProcess(){
       $(".progress").css({"border-radius":"0.25rem"});
@@ -122,20 +129,23 @@
     function show_model(kdata,title,ext,note){
       downloadTitle = title;
       downloadUrl[ext][note] = kdata.downloadUrlX;
-      $("#result-wait").hide();
+      hideAllWait();
       $("#myModalLabel").text(title);
       $("#A_downloadUrl").attr("href", kdata.downloadUrlX);
       new bootstrap.Modal(document.getElementById('myModal')).show();
     }
 
     function showDownloadErrorModal(errorMsg){
-      $("#result-wait").hide();
+      hideAllWait();
       $("#downloadErrorLabel").text(errorMsg);
       new bootstrap.Modal(document.getElementById('downloadErrorModal')).show();
     }
 
-    function getDownloadHost(id) { return API_BASE + "/mates/en/convert?id=" + encodeURIComponent(id); }
-    function getStatusHost(id) { return API_BASE + "/mates/en/convert/status?id=" + encodeURIComponent(id); }
+    function apiUrl(pathname) {
+      return (ACTIVE_API_BASE ? ACTIVE_API_BASE : "") + pathname;
+    }
+    function getDownloadHost(id) { return apiUrl("/mates/en/convert?id=" + encodeURIComponent(id)); }
+    function getStatusHost(id) { return apiUrl("/mates/en/convert/status?id=" + encodeURIComponent(id)); }
     function murmurHash64(str) {
       let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
       for (let i = 0; i < str.length; i++) {
@@ -150,7 +160,7 @@
     function getAnalyseHost(platform,retry) {
       const k_query = $('#txt-url').val().trim();
       const mhash = murmurHash64(k_query);
-      return API_BASE + "/mates/en/analyze/ajax?retry=" + (retry ?? "") + "&platform=" + platform + "&mhash=" + mhash;
+      return apiUrl("/mates/en/analyze/ajax?retry=" + (retry ?? "") + "&platform=" + platform + "&mhash=" + mhash);
     }
 
     function analyze(retry){
@@ -182,13 +192,13 @@
       else if (k_query.includes("twitter.com") || k_query.includes("x.com") || k_query.includes("t.co")) platform = "twitter";
       else if (k_query.includes("vimeo.com")) platform = "vimeo";
 
-      $.ajax({
+      const doRequest = (secondTry) => $.ajax({
         type: "POST",
         url: getAnalyseHost(platform,retry),
         dataType: "json",
         data: { url: k_query, ajax: 1, lang: lang, cftoken: cftoken },
         success: function (rpdata) {
-          $("#result-wait").hide();
+          hideAllWait();
           if (rpdata && rpdata.status === "success") {
             $("#result").empty().append(rpdata.result);
           } else if (rpdata && rpdata.result) {
@@ -200,12 +210,20 @@
           $('#btn-submit').prop('disabled', false);
         },
         error: function(){
-          $("#result-wait").hide();
+          // If Vercel rewrite/proxy fails, fallback to direct Render URL automatically
+          if (!secondTry && !ACTIVE_API_BASE && FALLBACK_BACKEND) {
+            ACTIVE_API_BASE = FALLBACK_BACKEND;
+            document.getElementById("api-hint").textContent = "API: " + ACTIVE_API_BASE;
+            doRequest(true);
+            return;
+          }
+          hideAllWait();
           $("#result").empty().append("<div class='alert alert-danger text-center'>Service is wrong, Please try again later</div>");
           a_busy = false;
           $('#btn-submit').prop('disabled', false);
         }
       });
+      doRequest(false);
     }
 
     function downloadStatus(url, title, id, ext, totalSize, note, format, videoUrl, videoCodec, countP) {
@@ -327,4 +345,3 @@
   </script>
 </body>
 </html>
-

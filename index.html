@@ -223,13 +223,23 @@
         function renderResult(data) {
             const { title, thumbnail, formats, id, url } = data;
             
-            let formatsHtml = formats.map(f => `
-                <div class="format-item" onclick="startDownload('${url}', '${title.replace(/'/g, "\\'")}', '${id}', '${f.ext}', '${f.format_id}')">
-                    <span class="format-res">${f.resolution}</span>
-                    <span class="format-ext">${f.ext}</span>
-                    <span class="format-size">${formatSize(f.filesize)}</span>
-                </div>
-            `).join("");
+            let formatsHtml = formats.map(f => {
+                const isImage = ["jpg", "png", "webp"].includes(f.ext);
+                const is4K = f.height >= 2160 || f.resolution.includes("2160") || f.resolution.includes("4k");
+                const audioLabel = isImage ? "" : (f.hasAudio ? "Video + Sound" : "Video Only");
+                const badge = is4K ? '<span style="position:absolute; top:8px; right:8px; background: #fbbf24; color: #000; font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; font-weight: 800;">4K</span>' : "";
+                
+                return `
+                    <div class="format-item" style="position:relative;" onclick="startDownload('${url}', '${title.replace(/'/g, "\\'")}', '${id}', '${f.ext}', '${f.format_id}')">
+                        ${badge}
+                        <span class="format-res">${f.resolution}</span>
+                        <span class="format-ext">${f.ext}</span>
+                        <span class="format-size" style="color:${f.hasAudio ? 'var(--accent-color)' : '#94a3b8'}">${audioLabel || formatSize(f.filesize)}</span>
+                        ${audioLabel ? `<span style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-top: 2px;">${formatSize(f.filesize)}</span>` : ""}
+                    </div>
+                `;
+            }).join("");
+
 
             if (formats.length === 0) {
                 formatsHtml = `<div class="format-item" onclick="startDownload('${url}', '${title.replace(/'/g, "\\'")}', '${id}', 'mp4', 'best')">

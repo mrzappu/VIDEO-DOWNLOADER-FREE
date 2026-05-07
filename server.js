@@ -301,10 +301,12 @@ app.post("/mates/en/analyze/ajax", async (req, res) => {
           ext: f.ext,
           height: f.height || 0,
           acodec: f.acodec,
+          hasAudio: hasAudio,
           filesize: f.filesize || f.filesize_approx || 0,
           vcodec: f.vcodec,
           resolution: f.resolution || (f.height ? `${f.height}p` : (f.width ? `${f.width}x${f.height}` : "Source"))
         };
+
       })
       .filter((f) => f.format_id && f.ext)
       .sort((a, b) => (b.height - a.height) || (b.filesize - a.filesize))

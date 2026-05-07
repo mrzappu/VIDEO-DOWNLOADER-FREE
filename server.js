@@ -114,12 +114,15 @@ function startJob({ id, url, title, ext, format }) {
     status: "processing",
     type: "download_start",
     percent: "0%",
+    format: format,
     filePath: "",
     fileName: "",
     createdAt: Date.now(),
     error: ""
   };
+  console.log(`[JOB_START] id=${id} format=${format} title=${title}`);
   jobs.set(id, job);
+
 
   const onLine = (line) => {
     const m = line.match(/\[download\]\s+(\d+(?:\.\d+)?)%/);
@@ -158,6 +161,7 @@ function startJob({ id, url, title, ext, format }) {
     job.percent = "0%";
 
     const p = spawn("yt-dlp", args, { stdio: ["ignore", "pipe", "pipe"] });
+    console.log(`[EXEC] yt-dlp ${args.join(" ")}`);
     let stderr = "";
 
     p.stdout.on("data", (d) => d.toString().split(/\r?\n/).forEach(onLine));
@@ -292,9 +296,11 @@ app.post("/mates/en/analyze/ajax", async (req, res) => {
       .filter((f) => f && (f.vcodec && f.vcodec !== "none" || f.ext === "mp4" || f.ext === "mkv" || f.ext === "jpg" || f.ext === "png" || f.ext === "webp" || f.ext === "webm"))
       .map((f) => {
         const isImage = ["jpg", "png", "webp"].includes(f.ext);
+        const hasVideo = f.vcodec && f.vcodec !== "none";
         const hasAudio = f.acodec && f.acodec !== "none";
-        // If it's a video without audio, append bestaudio selector
-        const selector = (isImage || hasAudio) ? f.format_id : `${f.format_id}+bestaudio/best`;
+        
+        // Only append bestaudio if it's a video-only format
+        const selector = (hasVideo && !hasAudio && !isImage) ? `${f.format_id}+bestaudio/best` : f.format_id;
         
         return {
           format_id: selector,

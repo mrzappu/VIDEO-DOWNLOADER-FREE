@@ -303,18 +303,28 @@ app.post("/mates/en/feedback", async (req, res) => {
       timestamp: new Date().toISOString()
     };
 
-    await fetch(webhookUrl, {
+    const response = await fetch(webhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ embeds: [embed] })
+      body: JSON.stringify({ 
+        username: "IMPOSTER Bot",
+        embeds: [embed] 
+      })
     });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Discord Webhook Error Status:", response.status, errorText);
+      throw new Error(`Discord API error: ${response.status}`);
+    }
 
     res.json({ status: "success", message: "Feedback sent! Thank you." });
   } catch (error) {
-    console.error("Webhook Error:", error);
-    res.json({ status: "error", message: "Failed to send feedback." });
+    console.error("Webhook Error Details:", error);
+    res.json({ status: "error", message: "Failed to deliver feedback. Please try later." });
   }
 });
+
 
 app.post("/mates/en/analyze/ajax", async (req, res) => {
 

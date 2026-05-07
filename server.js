@@ -289,7 +289,7 @@ app.post("/mates/en/analyze/ajax", async (req, res) => {
 
     const formats = Array.isArray(info?.formats) ? info.formats : [];
     let videoFormats = formats
-      .filter((f) => f && (f.vcodec && f.vcodec !== "none" || f.ext === "mp4" || f.ext === "mkv" || f.ext === "jpg" || f.ext === "png" || f.ext === "webp"))
+      .filter((f) => f && (f.vcodec && f.vcodec !== "none" || f.ext === "mp4" || f.ext === "mkv" || f.ext === "jpg" || f.ext === "png" || f.ext === "webp" || f.ext === "webm"))
       .map((f) => {
         const isImage = ["jpg", "png", "webp"].includes(f.ext);
         const hasAudio = f.acodec && f.acodec !== "none";
@@ -301,16 +301,16 @@ app.post("/mates/en/analyze/ajax", async (req, res) => {
           ext: f.ext,
           height: f.height || 0,
           acodec: f.acodec,
+          vcodec: f.vcodec,
           hasAudio: hasAudio,
           filesize: f.filesize || f.filesize_approx || 0,
-          vcodec: f.vcodec,
-          resolution: f.resolution || (f.height ? `${f.height}p` : (f.width ? `${f.width}x${f.height}` : "Source"))
+          resolution: f.resolution || (f.height ? `${f.height}p` : (f.width ? `${f.width}x${f.height}` : "Source")),
+          note: f.format_note || ""
         };
-
       })
       .filter((f) => f.format_id && f.ext)
       .sort((a, b) => (b.height - a.height) || (b.filesize - a.filesize))
-      .slice(0, 20);
+      .slice(0, 50);
 
     // If no formats found but there is a direct URL (common for images)
     if (videoFormats.length === 0 && info?.url) {

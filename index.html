@@ -279,9 +279,8 @@
             $("#view-about").fadeOut(300, () => $("#view-downloader").fadeIn(300));
         }
 
-        let checkStatusInterval = null;
-
         function formatSize(bytes) {
+
             if (!bytes || bytes < 1) return "Auto Size";
             const mb = bytes / (1024 * 1024);
             return mb.toFixed(1) + " MB";
@@ -445,9 +444,7 @@
         }
 
         function closeModal() { $("#download-modal").hide(); }
-        
-        function openSettings() { $("#settings-modal").css("display", "flex"); }
-        function closeSettings() { $("#settings-modal").hide(); }
+
 
         function sendFeedback() {
             const name = $("#fb-name").val().trim();

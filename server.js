@@ -284,7 +284,40 @@ app.get("/healthz", async (req, res) => {
   }
 });
 
+app.post("/mates/en/feedback", async (req, res) => {
+  const { name, email, details } = req.body;
+  const webhookUrl = "https://discord.com/api/webhooks/1502030592428998819/QfOlcqIz9eVvpf8BxMBJ4CVkyDYQwS-8x35sBS3fCEJJ92b-i6DZ2gBTMM3GfDSevgBl";
+
+  if (!name || !details) return res.json({ status: "error", message: "Name and details are required." });
+
+  try {
+    const embed = {
+      title: "📩 New Feedback Received",
+      color: 0x6366f1, // Indigo
+      fields: [
+        { name: "👤 Name", value: name, inline: true },
+        { name: "📧 Email", value: email || "Not provided", inline: true },
+        { name: "📝 Message", value: details }
+      ],
+      footer: { text: "IMPOSTER Feedback System" },
+      timestamp: new Date().toISOString()
+    };
+
+    await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ embeds: [embed] })
+    });
+
+    res.json({ status: "success", message: "Feedback sent! Thank you." });
+  } catch (error) {
+    console.error("Webhook Error:", error);
+    res.json({ status: "error", message: "Failed to send feedback." });
+  }
+});
+
 app.post("/mates/en/analyze/ajax", async (req, res) => {
+
   try {
     const url = (req.body?.url || "").toString().trim();
     if (!url) {

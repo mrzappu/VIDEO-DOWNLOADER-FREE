@@ -275,6 +275,17 @@
             </div>
 
             <div style="margin-bottom: 2rem;">
+                <p style="font-weight: 700; color: var(--accent-color); margin-bottom: 0.5rem;">Send Feedback</p>
+                <div style="background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 12px; border: 1px solid var(--glass-border);">
+                    <input type="text" id="fb-name" placeholder="Your Name" style="width: 100%; background: none; border: 1px solid var(--glass-border); color: white; padding: 0.6rem; border-radius: 8px; margin-bottom: 0.5rem; outline: none;">
+                    <input type="email" id="fb-email" placeholder="Your Email (Optional)" style="width: 100%; background: none; border: 1px solid var(--glass-border); color: white; padding: 0.6rem; border-radius: 8px; margin-bottom: 0.5rem; outline: none;">
+                    <textarea id="fb-details" placeholder="How can we improve?" style="width: 100%; background: none; border: 1px solid var(--glass-border); color: white; padding: 0.6rem; border-radius: 8px; margin-bottom: 0.8rem; outline: none; height: 80px; resize: none;"></textarea>
+                    <button onclick="sendFeedback()" id="btn-feedback" class="modal-btn" style="width: 100%; margin-top: 0; padding: 0.6rem;">Submit Feedback</button>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 2rem;">
+
 
 
                 <p style="font-weight: 700; color: var(--accent-color); margin-bottom: 0.5rem;">About Imposter Team</p>
@@ -464,7 +475,36 @@
         function openSettings() { $("#settings-modal").css("display", "flex"); }
         function closeSettings() { $("#settings-modal").hide(); }
 
+        function sendFeedback() {
+            const name = $("#fb-name").val().trim();
+            const email = $("#fb-email").val().trim();
+            const details = $("#fb-details").val().trim();
+
+            if (!name || !details) { alert("Please fill in your name and message."); return; }
+
+            $("#btn-feedback").prop("disabled", true).text("Sending...");
+
+            $.ajax({
+                type: "POST",
+                url: "/mates/en/feedback",
+                data: { name, email, details },
+                dataType: "json",
+                success: (res) => {
+                    alert(res.message);
+                    if (res.status === "success") {
+                        $("#fb-name, #fb-email, #fb-details").val("");
+                    }
+                    $("#btn-feedback").prop("disabled", false).text("Submit Feedback");
+                },
+                error: () => {
+                    alert("Error sending feedback.");
+                    $("#btn-feedback").prop("disabled", false).text("Submit Feedback");
+                }
+            });
+        }
+
         function acceptTos() {
+
             localStorage.setItem("imposter_tos_accepted", "true");
             $("#tos-modal").hide();
         }

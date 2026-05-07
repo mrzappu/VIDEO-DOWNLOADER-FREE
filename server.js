@@ -29,7 +29,7 @@ process.on("uncaughtException", (err) => {
 // Set env var YTDLP_COOKIES_B64 on Render to a base64-encoded cookies.txt content.
 const COOKIES_PATH = path.join(process.cwd(), "cookies.txt");
 try {
-  const b64 = process.env.YTDLP_COOKIES_B64;
+  const b64 = (process.env.YTDLP_COOKIES_B64 || "").replace(/\s+/g, "");
   if (b64 && !fs.existsSync(COOKIES_PATH)) {
     fs.writeFileSync(COOKIES_PATH, Buffer.from(b64, "base64"));
     console.log("cookies.txt written from YTDLP_COOKIES_B64");
@@ -107,38 +107,6 @@ function startJob({ id, url, title, ext }) {
   };
   jobs.set(id, job);
 
-  let args;
-  if (ext === "mp3") {
-    job.type = "downloading";
-    args = [
-      url,
-      "--no-playlist",
-      ...ytDlpCookieArgs(),
-      "-x",
-      "--audio-format",
-      "mp3",
-      "--audio-quality",
-      "0",
-      "-o",
-      `${outBase}.%(ext)s`
-    ];
-  } else {
-    job.type = "downloading";
-    args = [
-      url,
-      "--no-playlist",
-      ...ytDlpCookieArgs(),
-      "-f",
-      "bestvideo+bestaudio/best",
-      "--merge-output-format",
-      "mp4",
-      "-o",
-      `${outBase}.%(ext)s`
-    ];
-  }
-
-  const p = spawn("yt-dlp", args, { stdio: ["ignore", "pipe", "pipe"] });
-
   const onLine = (line) => {
     const m = line.match(/\[download\]\s+(\d+(?:\.\d+)?)%/);
     if (m) {
@@ -155,22 +123,7 @@ function startJob({ id, url, title, ext }) {
     }
   };
 
-  p.stdout.on("data", (d) => d.toString().split(/\r?\n/).forEach(onLine));
-  p.stderr.on("data", (d) => d.toString().split(/\r?\n/).forEach(onLine));
-
-  // IMPORTANT: handle spawn error to avoid server crash (missing yt-dlp/ffmpeg)
-  p.on("error", (e) => {
-    job.status = "error";
-    job.error = `yt-dlp not available: ${e?.message || e}`;
-  });
-
-  p.on("close", (code) => {
-    if (code !== 0) {
-      job.status = "error";
-      job.error = "yt-dlp failed";
-      return;
-    }
-
+  const finishSuccess = () => {
     const files = fs.readdirSync(jobDir).filter((f) => !f.endsWith(".part"));
     const wantedExt = ext === "mp3" ? ".mp3" : ".mp4";
     const found = files.find((f) => f.toLowerCase().endsWith(wantedExt)) || files[0];
@@ -179,13 +132,104 @@ function startJob({ id, url, title, ext }) {
       job.error = "output not found";
       return;
     }
-
     job.status = "success";
     job.type = "success";
     job.percent = "100%";
     job.fileName = found;
     job.filePath = path.join(jobDir, found);
-  });
+  };
+
+  const runAttempt = (args, next) => {
+    job.type = "downloading";
+    job.percent = "0%";
+
+    const p = spawn("yt-dlp", args, { stdio: ["ignore", "pipe", "pipe"] });
+    let stderr = "";
+
+    p.stdout.on("data", (d) => d.toString().split(/\r?\n/).forEach(onLine));
+    p.stderr.on("data", (d) => {
+      const s = d.toString();
+      stderr += s;
+      s.split(/\r?\n/).forEach(onLine);
+    });
+
+    // IMPORTANT: handle spawn error to avoid server crash (missing yt-dlp/ffmpeg)
+    p.on("error", (e) => {
+      job.status = "error";
+      job.error = `yt-dlp not available: ${e?.message || e}`;
+    });
+
+    p.on("close", (code) => {
+      if (code === 0) {
+        finishSuccess();
+        return;
+      }
+      // Try fallback if format not available, otherwise fail
+      if (typeof next === "function") {
+        next(stderr);
+        return;
+      }
+      job.status = "error";
+      job.error = (stderr || "yt-dlp failed").slice(0, 300);
+    });
+  };
+
+  if (ext === "mp3") {
+    const args = [
+      url,
+      "--no-playlist",
+      ...ytDlpCookieArgs(),
+      "-x",
+      "--audio-format",
+      "mp3",
+      "--audio-quality",
+      "0",
+      "-o",
+      `${outBase}.%(ext)s`
+    ];
+    runAttempt(args);
+    return;
+  }
+
+  // MP4 with fallbacks:
+  // 1) bestvideo+bestaudio/best (merge mp4)
+  // 2) best[ext=mp4]/best (prefer mp4 progressive)
+  // 3) best then recode to mp4 (slow, but avoids “format not available” failures)
+  const attempt1 = [
+    url,
+    "--no-playlist",
+    ...ytDlpCookieArgs(),
+    "-f",
+    "bestvideo+bestaudio/best",
+    "--merge-output-format",
+    "mp4",
+    "-o",
+    `${outBase}.%(ext)s`
+  ];
+  const attempt2 = [
+    url,
+    "--no-playlist",
+    ...ytDlpCookieArgs(),
+    "-f",
+    "best[ext=mp4]/best",
+    "--merge-output-format",
+    "mp4",
+    "-o",
+    `${outBase}.%(ext)s`
+  ];
+  const attempt3 = [
+    url,
+    "--no-playlist",
+    ...ytDlpCookieArgs(),
+    "-f",
+    "best",
+    "--recode-video",
+    "mp4",
+    "-o",
+    `${outBase}.%(ext)s`
+  ];
+
+  runAttempt(attempt1, () => runAttempt(attempt2, () => runAttempt(attempt3)));
 }
 
 app.get("/", (req, res) => res.status(200).send("OK"));

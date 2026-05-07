@@ -2,12 +2,11 @@
   "rewrites": [
     {
       "source": "/mates/:path*",
-      "destination": "https://YOUR-RENDER-BACKEND.onrender.com/mates/:path*"
+      "destination": "https://video-downloader-free.onrender.com/mates/:path*"
     },
     {
       "source": "/downloads/:path*",
-      "destination": "https://YOUR-RENDER-BACKEND.onrender.com/downloads/:path*"
+      "destination": "https://video-downloader-free.onrender.com/downloads/:path*"
     }
   ]
 }
-

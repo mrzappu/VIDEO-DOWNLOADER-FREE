@@ -1,4 +1,4 @@
-FROM node:20-bullseye
+FROM node:20-bookworm
 
 # Install ffmpeg + python (for yt-dlp)
 RUN apt-get update \
@@ -16,4 +16,3 @@ COPY . /app
 ENV PORT=3000
 EXPOSE 3000
 CMD ["npm", "start"]
-

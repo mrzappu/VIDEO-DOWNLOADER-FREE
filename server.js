@@ -25,6 +25,29 @@ process.on("uncaughtException", (err) => {
   console.error("UncaughtException:", err);
 });
 
+// Optional YouTube auth cookies (do NOT commit cookies to GitHub)
+// Set env var YTDLP_COOKIES_B64 on Render to a base64-encoded cookies.txt content.
+const COOKIES_PATH = path.join(process.cwd(), "cookies.txt");
+try {
+  const b64 = process.env.YTDLP_COOKIES_B64;
+  if (b64 && !fs.existsSync(COOKIES_PATH)) {
+    fs.writeFileSync(COOKIES_PATH, Buffer.from(b64, "base64"));
+    console.log("cookies.txt written from YTDLP_COOKIES_B64");
+  }
+} catch (e) {
+  console.error("Failed to write cookies.txt:", e);
+}
+
+function ytDlpCookieArgs() {
+  // If cookies.txt exists, pass it to yt-dlp
+  try {
+    if (fs.existsSync(COOKIES_PATH) && fs.statSync(COOKIES_PATH).size > 0) {
+      return ["--cookies", COOKIES_PATH];
+    }
+  } catch {}
+  return [];
+}
+
 function baseUrl(req) {
   const proto = (req.headers["x-forwarded-proto"] || req.protocol || "http").toString();
   const host = req.headers["x-forwarded-host"] || req.headers.host;
@@ -42,7 +65,7 @@ function htmlEscape(s) {
 
 function runYtDlpJson(url, extraArgs = []) {
   return new Promise((resolve, reject) => {
-    const args = ["-J", "--no-warnings", "--skip-download", ...extraArgs, url];
+    const args = ["-J", "--no-warnings", "--skip-download", ...ytDlpCookieArgs(), ...extraArgs, url];
     const p = spawn("yt-dlp", args, { stdio: ["ignore", "pipe", "pipe"] });
     let out = "";
     let err = "";
@@ -90,6 +113,7 @@ function startJob({ id, url, title, ext }) {
     args = [
       url,
       "--no-playlist",
+      ...ytDlpCookieArgs(),
       "-x",
       "--audio-format",
       "mp3",
@@ -103,6 +127,7 @@ function startJob({ id, url, title, ext }) {
     args = [
       url,
       "--no-playlist",
+      ...ytDlpCookieArgs(),
       "-f",
       "bestvideo+bestaudio/best",
       "--merge-output-format",
@@ -174,7 +199,12 @@ app.get("/healthz", async (req, res) => {
       res.status(200).json({ ok: false, error: `yt-dlp not available: ${e?.message || e}` });
     });
     p.on("close", (code) => {
-      res.status(200).json({ ok: true, yt_dlp_version: out.trim(), code });
+      res.status(200).json({
+        ok: true,
+        yt_dlp_version: out.trim(),
+        code,
+        cookies_enabled: ytDlpCookieArgs().length > 0
+      });
     });
   } catch (e) {
     res.status(200).json({ ok: false, error: String(e?.message || e) });

@@ -197,6 +197,7 @@
         type: "POST",
         url: getAnalyseHost(platform,retry),
         dataType: "json",
+        timeout: 25000,
         data: { url: k_query, ajax: 1, lang: lang, cftoken: cftoken },
         success: function (rpdata) {
           hideAllWait();
@@ -236,6 +237,7 @@
           headers: { "x-note": note, "platform":"youtube" },
           data: { platform:"youtube", url, title, id, ext, note, format },
           dataType: "json",
+          timeout: 25000,
           success: function (kdata) {
             if (countP != count) return;
             if (downloadUrl[ext][note]) { d_busy = false; return; }
@@ -294,6 +296,7 @@
           headers: { "x-note": note, "platform":"youtube" },
           data: { platform:"youtube", url, title, id, ext, note, format, videoUrl, videoCodec, audioUrl: $("#audioUrl").val() },
           dataType: "json",
+          timeout: 25000,
           beforeSend: function () {
             $("#result-wait").show();
             initProcess();

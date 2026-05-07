@@ -205,6 +205,21 @@ function startJob({ id, url, title, ext, format }) {
     return;
   }
 
+  // Handle Images
+  if (["jpg", "png", "webp"].includes(ext)) {
+    const args = [
+      url,
+      "--no-playlist",
+      ...ytDlpCookieArgs(url),
+      "-f",
+      format || "best",
+      "-o",
+      `${outBase}.%(ext)s`
+    ];
+    runAttempt(args);
+    return;
+  }
+
   // Generic video download:
   // - if a specific format selector is provided from UI, use it
   // - otherwise use best
@@ -275,29 +290,37 @@ app.post("/mates/en/analyze/ajax", async (req, res) => {
     const formats = Array.isArray(info?.formats) ? info.formats : [];
     let videoFormats = formats
       .filter((f) => f && (f.vcodec && f.vcodec !== "none" || f.ext === "mp4" || f.ext === "mkv" || f.ext === "jpg" || f.ext === "png" || f.ext === "webp"))
-      .map((f) => ({
-        format_id: f.format_id,
-        ext: f.ext,
-        height: f.height || 0,
-        acodec: f.acodec,
-        filesize: f.filesize || f.filesize_approx || 0,
-        vcodec: f.vcodec,
-        resolution: f.resolution || (f.height ? `${f.height}p` : (f.width ? `${f.width}x${f.height}` : "Source"))
-      }))
+      .map((f) => {
+        const isImage = ["jpg", "png", "webp"].includes(f.ext);
+        const hasAudio = f.acodec && f.acodec !== "none";
+        // If it's a video without audio, append bestaudio selector
+        const selector = (isImage || hasAudio) ? f.format_id : `${f.format_id}+bestaudio/best`;
+        
+        return {
+          format_id: selector,
+          ext: f.ext,
+          height: f.height || 0,
+          acodec: f.acodec,
+          filesize: f.filesize || f.filesize_approx || 0,
+          vcodec: f.vcodec,
+          resolution: f.resolution || (f.height ? `${f.height}p` : (f.width ? `${f.width}x${f.height}` : "Source"))
+        };
+      })
       .filter((f) => f.format_id && f.ext)
       .sort((a, b) => (b.height - a.height) || (b.filesize - a.filesize))
       .slice(0, 20);
 
-    // If no formats found but there is a direct URL, add it as a "Source" option
+    // If no formats found but there is a direct URL (common for images)
     if (videoFormats.length === 0 && info?.url) {
         videoFormats.push({
             format_id: "best",
             ext: info.ext || "mp4",
             height: info.height || 0,
-            resolution: "Source Quality",
+            resolution: "Original Quality",
             filesize: info.filesize || 0
         });
     }
+
 
     return res.json({ 
       status: "success", 

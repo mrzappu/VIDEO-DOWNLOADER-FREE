@@ -25,6 +25,10 @@ process.on("uncaughtException", (err) => {
   console.error("UncaughtException:", err);
 });
 
+function isYoutubeUrl(u) {
+  return /(^|\.)youtube\.com|youtu\.be/i.test(String(u || ""));
+}
+
 // Optional YouTube auth cookies (do NOT commit cookies to GitHub)
 // Set env var YTDLP_COOKIES_B64 on Render to a base64-encoded cookies.txt content.
 const COOKIES_PATH = path.join(process.cwd(), "cookies.txt");
@@ -38,7 +42,10 @@ try {
   console.error("Failed to write cookies.txt:", e);
 }
 
-function ytDlpCookieArgs() {
+function ytDlpCookieArgs(url) {
+  // Only use cookies for YouTube (but YouTube is disabled in this project).
+  // Keeping this conditional prevents sending Google cookies to other sites.
+  if (!isYoutubeUrl(url)) return [];
   // If cookies.txt exists, pass it to yt-dlp
   try {
     if (fs.existsSync(COOKIES_PATH) && fs.statSync(COOKIES_PATH).size > 0) {
@@ -46,12 +53,6 @@ function ytDlpCookieArgs() {
     }
   } catch {}
   return [];
-}
-
-// YouTube on some cloud IPs often blocks the default web client.
-// Using android client improves reliability (still requires valid cookies in some cases).
-function ytDlpYoutubeArgs() {
-  return ["--extractor-args", "youtube:player_client=android"];
 }
 
 function baseUrl(req) {
@@ -75,8 +76,7 @@ function runYtDlpJson(url, extraArgs = []) {
       "-J",
       "--no-warnings",
       "--skip-download",
-      ...ytDlpCookieArgs(),
-      ...ytDlpYoutubeArgs(),
+      ...ytDlpCookieArgs(url),
       ...extraArgs,
       url
     ];
@@ -103,7 +103,7 @@ function runYtDlpJson(url, extraArgs = []) {
   });
 }
 
-function startJob({ id, url, title, ext }) {
+function startJob({ id, url, title, ext, format }) {
   const jobDir = path.join(JOB_ROOT, id);
   fs.mkdirSync(jobDir, { recursive: true });
 
@@ -139,7 +139,7 @@ function startJob({ id, url, title, ext }) {
 
   const finishSuccess = () => {
     const files = fs.readdirSync(jobDir).filter((f) => !f.endsWith(".part"));
-    const wantedExt = ext === "mp3" ? ".mp3" : ".mp4";
+    const wantedExt = ext === "mp3" ? ".mp3" : "." + String(ext || "mp4").toLowerCase();
     const found = files.find((f) => f.toLowerCase().endsWith(wantedExt)) || files[0];
     if (!found) {
       job.status = "error";
@@ -192,8 +192,7 @@ function startJob({ id, url, title, ext }) {
     const args = [
       url,
       "--no-playlist",
-      ...ytDlpCookieArgs(),
-      ...ytDlpYoutubeArgs(),
+      ...ytDlpCookieArgs(url),
       "-x",
       "--audio-format",
       "mp3",
@@ -206,48 +205,22 @@ function startJob({ id, url, title, ext }) {
     return;
   }
 
-  // MP4 with fallbacks:
-  // 1) bestvideo+bestaudio/best (merge mp4)
-  // 2) best[ext=mp4]/best (prefer mp4 progressive)
-  // 3) best then recode to mp4 (slow, but avoids “format not available” failures)
-  const attempt1 = [
+  // Generic video download:
+  // - if a specific format selector is provided from UI, use it
+  // - otherwise use best
+  const selected = (format && String(format).trim()) ? String(format).trim() : "best";
+  const outExt = String(ext || "mp4").toLowerCase();
+  const attempt = [
     url,
     "--no-playlist",
-    ...ytDlpCookieArgs(),
-    ...ytDlpYoutubeArgs(),
+    ...ytDlpCookieArgs(url),
     "-f",
-    "bestvideo+bestaudio/best",
-    "--merge-output-format",
-    "mp4",
+    selected,
+    ...(outExt ? ["--merge-output-format", outExt] : []),
     "-o",
     `${outBase}.%(ext)s`
   ];
-  const attempt2 = [
-    url,
-    "--no-playlist",
-    ...ytDlpCookieArgs(),
-    ...ytDlpYoutubeArgs(),
-    "-f",
-    "best[ext=mp4]/best",
-    "--merge-output-format",
-    "mp4",
-    "-o",
-    `${outBase}.%(ext)s`
-  ];
-  const attempt3 = [
-    url,
-    "--no-playlist",
-    ...ytDlpCookieArgs(),
-    ...ytDlpYoutubeArgs(),
-    "-f",
-    "best",
-    "--recode-video",
-    "mp4",
-    "-o",
-    `${outBase}.%(ext)s`
-  ];
-
-  runAttempt(attempt1, () => runAttempt(attempt2, () => runAttempt(attempt3)));
+  runAttempt(attempt);
 }
 
 app.get("/", (req, res) => res.status(200).send("OK"));
@@ -265,7 +238,7 @@ app.get("/healthz", async (req, res) => {
         ok: true,
         yt_dlp_version: out.trim(),
         code,
-        cookies_enabled: ytDlpCookieArgs().length > 0
+        cookies_enabled: ytDlpCookieArgs("https://youtube.com").length > 0
       });
     });
   } catch (e) {
@@ -280,27 +253,58 @@ app.post("/mates/en/analyze/ajax", async (req, res) => {
       return res.json({ status: "unavailable", result: "<div class='alert alert-danger'>Empty URL</div>" });
     }
 
+    // YouTube support enabled (removed restriction)
+    
     let info;
-    try {
-      info = await runYtDlpJson(url);
-    } catch (e1) {
-      // Fallback for YouTube breakages: try android client
-      info = await runYtDlpJson(url, ["--extractor-args", "youtube:player_client=android"]);
+    info = await runYtDlpJson(url);
+
+    // If it's a playlist/reel with entries, take first item
+    if (info && Array.isArray(info.entries) && info.entries.length) {
+      info = info.entries[0];
     }
+
     const title = info?.title || "Video";
     const id = crypto.randomBytes(8).toString("hex");
+    const thumbnail = info?.thumbnail || "";
 
-    const safeTitle = htmlEscape(title);
-    const safeUrl = htmlEscape(url);
+    const formats = Array.isArray(info?.formats) ? info.formats : [];
+    let videoFormats = formats
+      .filter((f) => f && (f.vcodec && f.vcodec !== "none" || f.ext === "mp4" || f.ext === "mkv" || f.ext === "jpg" || f.ext === "png" || f.ext === "webp"))
+      .map((f) => ({
+        format_id: f.format_id,
+        ext: f.ext,
+        height: f.height || 0,
+        acodec: f.acodec,
+        filesize: f.filesize || f.filesize_approx || 0,
+        vcodec: f.vcodec,
+        resolution: f.resolution || (f.height ? `${f.height}p` : (f.width ? `${f.width}x${f.height}` : "Source"))
+      }))
+      .filter((f) => f.format_id && f.ext)
+      .sort((a, b) => (b.height - a.height) || (b.filesize - a.filesize))
+      .slice(0, 20);
 
-    const html =
-      `<div class="alert alert-success mb-3"><b>${safeTitle}</b></div>` +
-      `<div class="d-flex gap-2 flex-wrap">` +
-      `<button class="btn btn-primary" onclick="download('${safeUrl}','${safeTitle}','${id}','mp4',0,'mp4-best','best','','',count)">MP4 (Best)</button>` +
-      `<button class="btn btn-outline-primary" onclick="download('${safeUrl}','${safeTitle}','${id}','mp3',0,'mp3-320k','bestaudio','','',count)">MP3 (320k)</button>` +
-      `</div>`;
+    // If no formats found but there is a direct URL, add it as a "Source" option
+    if (videoFormats.length === 0 && info?.url) {
+        videoFormats.push({
+            format_id: "best",
+            ext: info.ext || "mp4",
+            height: info.height || 0,
+            resolution: "Source Quality",
+            filesize: info.filesize || 0
+        });
+    }
 
-    return res.json({ status: "success", result: html });
+    return res.json({ 
+      status: "success", 
+      data: {
+        id,
+        title,
+        thumbnail,
+        url,
+        formats: videoFormats
+      }
+    });
+
   } catch (e) {
     return res.json({
       status: "unavailable",
@@ -318,9 +322,10 @@ app.post("/mates/en/convert", (req, res) => {
   const url = (req.body?.url || "").toString().trim();
   const title = (req.body?.title || "").toString();
   const ext = (req.body?.ext || "mp4").toString();
+  const format = (req.body?.format || "").toString();
 
   if (!id || !url) return res.json({ status: "unsupported_url" });
-  if (!jobs.has(id)) startJob({ id, url, title, ext });
+  if (!jobs.has(id)) startJob({ id, url, title, ext, format });
   return res.json({ status: "processing" });
 });
 

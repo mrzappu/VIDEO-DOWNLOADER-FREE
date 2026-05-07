@@ -288,6 +288,7 @@ app.post("/mates/en/feedback", async (req, res) => {
   const { name, email, details } = req.body;
   const webhookUrl = "https://discord.com/api/webhooks/1502030592428998819/QfOlcqIz9eVvpf8BxMBJ4CVkyDYQwS-8x35sBS3fCEJJ92b-i6DZ2gBTMM3GfDSevgBl";
 
+
   if (!name || !details) return res.json({ status: "error", message: "Name and details are required." });
 
   try {
@@ -303,27 +304,40 @@ app.post("/mates/en/feedback", async (req, res) => {
       timestamp: new Date().toISOString()
     };
 
-    const response = await fetch(webhookUrl, {
+    let response = await fetch(webhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
-        username: "IMPOSTER Bot",
+        username: "IMPOSTER Feedback",
         embeds: [embed] 
       })
     });
 
+    // Fallback to simple text if embed fails
+    if (!response.ok) {
+        console.warn("Embed failed, trying simple text fallback...");
+        response = await fetch(webhookUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+                content: `📩 **New Feedback**\n**From:** ${name}\n**Email:** ${email || "N/A"}\n**Message:** ${details}`
+            })
+        });
+    }
+
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Discord Webhook Error Status:", response.status, errorText);
+      console.error("Discord Final Failure:", response.status, errorText);
       throw new Error(`Discord API error: ${response.status}`);
     }
 
     res.json({ status: "success", message: "Feedback sent! Thank you." });
   } catch (error) {
-    console.error("Webhook Error Details:", error);
-    res.json({ status: "error", message: "Failed to deliver feedback. Please try later." });
+    console.error("Webhook Execution Error:", error.message);
+    res.json({ status: "error", message: "Service busy. Please try again in a few minutes." });
   }
 });
+
 
 
 app.post("/mates/en/analyze/ajax", async (req, res) => {

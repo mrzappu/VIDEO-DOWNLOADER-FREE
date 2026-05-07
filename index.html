@@ -149,7 +149,8 @@
     </header>
 
     <main class="container">
-        <div class="glass-card">
+        <div id="view-downloader">
+            <div class="glass-card">
             <div style="background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 12px; padding: 0.8rem; margin-bottom: 2rem; font-size: 0.85rem; display: flex; align-items: center; gap: 0.8rem;">
                 <span style="font-size: 1.2rem;">⚠️</span>
                 <p style="margin: 0; color: #a5b4fc;"><b>ANNOUNCEMENT:</b> Please read our <a href="javascript:void(0)" onclick="openSettings()" style="color: var(--accent-color); text-decoration: underline;">About Us</a> section before using this service.</p>
@@ -196,6 +197,48 @@
                     About Us
                 </button>
             </div>
+            </div>
+        </div>
+
+        <div id="view-about" style="display: none; width: 100%; max-width: 900px; margin: 0 auto;">
+            <div class="glass-card" style="text-align: left;">
+                <h2 style="margin-bottom: 2rem; background: var(--primary-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 2.2rem;">About IMPOSTER</h2>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                    <div style="background: rgba(255,255,255,0.03); padding: 1.5rem; border-radius: 16px; border: 1px solid var(--glass-border);">
+                        <p style="font-weight: 700; color: var(--accent-color); margin-bottom: 1rem;">System Info</p>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">Version: 2.1.0-STABLE</p>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">Engine: yt-dlp Core</p>
+                        <p style="font-size: 0.85rem; color: var(--text-muted);">Status: Multi-Platform Active</p>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.03); padding: 1.5rem; border-radius: 16px; border: 1px solid var(--glass-border);">
+                        <p style="font-weight: 700; color: var(--accent-color); margin-bottom: 1rem;">Privacy Policy</p>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">• No logs stored</p>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">• Auto-delete after download</p>
+                        <p style="font-size: 0.85rem; color: var(--text-muted);">• No user tracking</p>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 2rem;">
+                    <p style="font-weight: 700; color: var(--accent-color); margin-bottom: 1rem;">Legal Policy</p>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.6;">IMPOSTER is for personal use only. We are not affiliated with YouTube, Meta, or TikTok. Users are responsible for complying with the copyright terms of the original content creators.</p>
+                </div>
+
+                <div style="margin-bottom: 2rem;">
+                    <p style="font-weight: 700; color: var(--accent-color); margin-bottom: 1rem;">Send Feedback</p>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <input type="text" id="fb-name" placeholder="Name" style="background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); color: white; padding: 0.8rem; border-radius: 10px; outline: none;">
+                        <input type="email" id="fb-email" placeholder="Email" style="background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); color: white; padding: 0.8rem; border-radius: 10px; outline: none;">
+                    </div>
+                    <textarea id="fb-details" placeholder="Message..." style="width: 100%; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); color: white; padding: 0.8rem; border-radius: 10px; margin-bottom: 1rem; outline: none; height: 80px; resize: none;"></textarea>
+                    <button onclick="sendFeedback()" id="btn-feedback" class="modal-btn" style="width: 100%; margin: 0;">Submit Feedback</button>
+                </div>
+
+                <div style="text-align: center; margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--glass-border);">
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">&copy; 2026 IMPOSTER TEAM. All rights reserved.</p>
+                    <button onclick="closeSettings()" class="modal-btn" style="background: var(--primary-gradient); width: auto; padding: 0.8rem 3rem;">Back to Home</button>
+                </div>
+            </div>
         </div>
     </main>
 
@@ -223,88 +266,19 @@
         </div>
     </div>
 
-    <div id="settings-modal" class="modal-overlay">
-        <div class="modal-content" style="max-width: 500px; text-align: left;">
-
-            <h2 style="margin-bottom: 1.5rem; background: var(--primary-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">About IMPOSTER</h2>
-            
-            <div style="margin-bottom: 1.5rem;">
-                <p style="font-weight: 700; color: var(--accent-color); margin-bottom: 0.5rem;">System Information</p>
-                <div style="background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 12px; border: 1px solid var(--glass-border); font-size: 0.85rem;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                        <span>Version</span>
-                        <span style="color: var(--text-muted);">2.1.0-STABLE</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                        <span>Engine</span>
-                        <span style="color: var(--text-muted);">yt-dlp (Python Core)</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between;">
-                        <span>Region</span>
-                        <span style="color: var(--text-muted);">Global (Geo-Bypass Active)</span>
-                    </div>
-                </div>
-            </div>
-
-            <div style="margin-bottom: 1.5rem;">
-                <p style="font-weight: 700; color: var(--accent-color); margin-bottom: 0.5rem;">Features Enabled</p>
-                <ul style="font-size: 0.85rem; color: var(--text-muted); padding-left: 1rem;">
-                    <li>4K / 8K Ultra HD Support</li>
-                    <li>Automatic Audio Merging</li>
-                    <li>Instagram Image Extraction</li>
-                    <li>Watermark-free TikTok Downloads</li>
-                </ul>
-            </div>
-
-            <div style="margin-bottom: 1.5rem;">
-                <p style="font-weight: 700; color: var(--accent-color); margin-bottom: 0.5rem;">Privacy & Policy</p>
-                <div style="font-size: 0.85rem; color: var(--text-muted);">
-                    <p style="margin-bottom: 0.5rem;">• No logs or personal data are ever stored.</p>
-                    <p style="margin-bottom: 0.5rem;">• Files are deleted immediately after download.</p>
-                    <p>• We do not track your browsing or download history.</p>
-                </div>
-            </div>
-
-            <div style="margin-bottom: 1.5rem;">
-                <p style="font-weight: 700; color: var(--accent-color); margin-bottom: 0.5rem;">Legal Policy</p>
-                <div style="font-size: 0.85rem; color: var(--text-muted);">
-                    <p style="margin-bottom: 0.5rem;">• Use this tool for personal, non-commercial use only.</p>
-                    <p style="margin-bottom: 0.5rem;">• We are not responsible for how you use downloaded content.</p>
-                    <p>• Not affiliated with YouTube, Meta, TikTok, or other platforms.</p>
-                </div>
-            </div>
-
-            <div style="margin-bottom: 2rem;">
-                <p style="font-weight: 700; color: var(--accent-color); margin-bottom: 0.5rem;">Send Feedback</p>
-                <div style="background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 12px; border: 1px solid var(--glass-border);">
-                    <input type="text" id="fb-name" placeholder="Your Name" style="width: 100%; background: none; border: 1px solid var(--glass-border); color: white; padding: 0.6rem; border-radius: 8px; margin-bottom: 0.5rem; outline: none;">
-                    <input type="email" id="fb-email" placeholder="Your Email (Optional)" style="width: 100%; background: none; border: 1px solid var(--glass-border); color: white; padding: 0.6rem; border-radius: 8px; margin-bottom: 0.5rem; outline: none;">
-                    <textarea id="fb-details" placeholder="How can we improve?" style="width: 100%; background: none; border: 1px solid var(--glass-border); color: white; padding: 0.6rem; border-radius: 8px; margin-bottom: 0.8rem; outline: none; height: 80px; resize: none;"></textarea>
-                    <button onclick="sendFeedback()" id="btn-feedback" class="modal-btn" style="width: 100%; margin-top: 0; padding: 0.6rem;">Submit Feedback</button>
-                </div>
-            </div>
-
-            <div style="margin-bottom: 2rem;">
-
-
-
-                <p style="font-weight: 700; color: var(--accent-color); margin-bottom: 0.5rem;">About Imposter Team</p>
-                <p style="font-size: 0.85rem; color: var(--text-muted);">We are a group of developers dedicated to providing the fastest, most reliable media extraction tools on the web. No ads, no tracking, just speed.</p>
-            </div>
-
-            <div style="text-align: center; margin-bottom: 1.5rem; font-size: 0.75rem; color: var(--text-muted); opacity: 0.6;">
-                &copy; 2026 IMPOSTER VIDEO DOWNLOADER. All rights reserved.
-            </div>
-
-            <button onclick="closeSettings()" class="modal-btn" style="width: 100%; margin-top: 0;">Back to App</button>
-
-        </div>
-    </div>
-
     <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
 
     <script>
         let isBusy = false;
+        let checkStatusInterval = null;
+
+        function openSettings() {
+            $("#view-downloader").fadeOut(300, () => $("#view-about").fadeIn(300));
+        }
+        function closeSettings() {
+            $("#view-about").fadeOut(300, () => $("#view-downloader").fadeIn(300));
+        }
+
         let checkStatusInterval = null;
 
         function formatSize(bytes) {
@@ -490,6 +464,7 @@
                 data: { name, email, details },
                 dataType: "json",
                 success: (res) => {
+                    console.log("[FEEDBACK_RES]", res);
                     alert(res.message);
                     if (res.status === "success") {
                         $("#fb-name, #fb-email, #fb-details").val("");

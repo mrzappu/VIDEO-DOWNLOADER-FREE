@@ -210,8 +210,22 @@
 
 
 
+    <div id="tos-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content" style="max-width: 450px;">
+            <h2 style="margin-bottom: 1rem; color: var(--accent-color);">Welcome to IMPOSTER</h2>
+            <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 1.5rem;">
+                By using this service, you agree to our <b>About Us</b> guidelines, including our Privacy and Legal policies. You confirm that you will use this tool for personal use only and respect all copyright laws.
+            </p>
+            <div style="display: flex; gap: 1rem;">
+                <button onclick="acceptTos()" class="modal-btn" style="flex: 2; margin-top: 0;">Agree & Continue</button>
+                <button onclick="window.location.href='https://google.com'" style="flex: 1; background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid var(--glass-border); border-radius: 12px; cursor: pointer; font-size: 0.9rem;">Decline</button>
+            </div>
+        </div>
+    </div>
+
     <div id="settings-modal" class="modal-overlay">
         <div class="modal-content" style="max-width: 500px; text-align: left;">
+
             <h2 style="margin-bottom: 1.5rem; background: var(--primary-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">About IMPOSTER</h2>
             
             <div style="margin-bottom: 1.5rem;">
@@ -450,9 +464,18 @@
         function openSettings() { $("#settings-modal").css("display", "flex"); }
         function closeSettings() { $("#settings-modal").hide(); }
 
-        $(document).ready(() => {
+        function acceptTos() {
+            localStorage.setItem("imposter_tos_accepted", "true");
+            $("#tos-modal").hide();
+        }
 
+        $(document).ready(() => {
+            if (!localStorage.getItem("imposter_tos_accepted")) {
+                $("#tos-modal").css("display", "flex");
+            }
+            
             $("#btn-submit").click(analyze);
+
             $("#txt-url").keypress((e) => { if (e.which == 13) analyze(); });
         });
     </script>

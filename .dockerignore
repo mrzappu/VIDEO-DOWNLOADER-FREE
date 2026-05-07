@@ -1,0 +1,5 @@
+node_modules
+jobs_tmp
+.git
+.DS_Store
+

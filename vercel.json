@@ -1,0 +1,13 @@
+{
+  "rewrites": [
+    {
+      "source": "/mates/:path*",
+      "destination": "https://YOUR-RENDER-BACKEND.onrender.com/mates/:path*"
+    },
+    {
+      "source": "/downloads/:path*",
+      "destination": "https://YOUR-RENDER-BACKEND.onrender.com/downloads/:path*"
+    }
+  ]
+}
+

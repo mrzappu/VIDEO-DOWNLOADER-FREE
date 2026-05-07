@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Video Downloader</title>
+
+  <!-- Bootstrap (CDN) -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background:#f8fafc; }
+    .card { border: 0; }
+  </style>
+
+  <!-- OPTIONAL: set your backend API base (only needed for local test) -->
+  <!-- <script>window.API_BASE = "http://localhost:3000";</script> -->
+</head>
+<body>
+  <header class="py-3 border-bottom bg-white">
+    <div class="container d-flex justify-content-between align-items-center">
+      <div class="fw-bold">Video Downloader</div>
+      <div class="small text-muted">No ads • No captcha</div>
+    </div>
+  </header>
+
+  <main class="container py-4">
+    <div class="row justify-content-center">
+      <div class="col-12 col-lg-8">
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <h1 class="h5 mb-3">Paste link</h1>
+
+            <div class="input-group mb-2">
+              <input id="txt-url" class="form-control" placeholder="https://..." autocomplete="off" />
+              <button id="btn-submit" class="btn btn-primary" type="button">Download</button>
+            </div>
+
+            <div class="d-flex align-items-center gap-2 mb-3">
+              <button id="clear-btn" class="btn btn-outline-secondary btn-sm" type="button" style="display:none">Clear</button>
+              <span id="result-wait" class="text-muted small" style="display:none">Processing…</span>
+              <span id="api-hint" class="text-muted small"></span>
+            </div>
+
+            <div class="progress mb-2" style="height: 1.4rem;">
+              <div id="progressbar1" class="progress-bar" role="progressbar" style="width:0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+            </div>
+            <div class="progress mb-3" style="height: 1.4rem;">
+              <div id="progressbar2" class="progress-bar bg-info" role="progressbar" style="width:0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+            </div>
+
+            <div id="result-wait-1" style="display:none" class="alert alert-info py-2 mb-2">Downloading…</div>
+            <div id="result-wait-2" style="display:none" class="alert alert-info py-2 mb-2">Converting…</div>
+            <div id="result-wait-3" style="display:none" class="alert alert-info py-2 mb-2">Merging…</div>
+            <div id="result-wait-4" style="display:none" class="alert alert-info py-2 mb-2">Converting audio…</div>
+            <div id="result-wait-5" style="display:none" class="alert alert-info py-2 mb-2">Analyzing…</div>
+            <div id="result-wait-6" style="display:none" class="alert alert-info py-2 mb-2">Retry analyzing…</div>
+            <div id="result-wait-7" style="display:none" class="alert alert-info py-2 mb-2">Starting download…</div>
+
+            <div id="convert"></div>
+            <div id="result"></div>
+
+            <input type="hidden" id="audioUrl" value="" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Download Modal -->
+  <div class="modal fade" id="myModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="myModalLabel">Download</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <a id="A_downloadUrl" class="btn btn-primary w-100" href="#" target="_blank" rel="noopener">Click to download</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error Modal -->
+  <div class="modal fade" id="downloadErrorModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="downloadErrorLabel">Error</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">Please try again.</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    // API base (optional). If empty, requests go to same domain (recommended with Vercel rewrites).
+    const API_BASE = (window.API_BASE ? String(window.API_BASE).replace(/\/+$/, "") : "");
+    document.getElementById("api-hint").textContent = API_BASE ? ("API: " + API_BASE) : "";
+
+    let a_busy = false;
+    let downloadUrl = {"mp3": {}, "mp4": {}};
+    let downloadTitle = null;
+    let d_busy = false;
+    let status_stop = false;
+    let count = 1;
+    let lang = "en";
+    let cftoken = ""; // Turnstile removed
+
+    function initProcess(){
+      $(".progress").css({"border-radius":"0.25rem"});
+      $("#progressbar1").attr("aria-valuenow", 0).css("width", "0%").text("");
+      $("#progressbar2").attr("aria-valuenow", 0).css("width", "0%").text("").css({"background-color":"#0dcaf0"});
+      $("#result-wait-1,#result-wait-2,#result-wait-3,#result-wait-4,#result-wait-6,#result-wait-7").hide();
+      $("#result-wait-5").show();
+    }
+
+    function show_model(kdata,title,ext,note){
+      downloadTitle = title;
+      downloadUrl[ext][note] = kdata.downloadUrlX;
+      $("#result-wait").hide();
+      $("#myModalLabel").text(title);
+      $("#A_downloadUrl").attr("href", kdata.downloadUrlX);
+      new bootstrap.Modal(document.getElementById('myModal')).show();
+    }
+
+    function showDownloadErrorModal(errorMsg){
+      $("#result-wait").hide();
+      $("#downloadErrorLabel").text(errorMsg);
+      new bootstrap.Modal(document.getElementById('downloadErrorModal')).show();
+    }
+
+    function getDownloadHost(id) { return API_BASE + "/mates/en/convert?id=" + encodeURIComponent(id); }
+    function getStatusHost(id) { return API_BASE + "/mates/en/convert/status?id=" + encodeURIComponent(id); }
+    function murmurHash64(str) {
+      let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+      for (let i = 0; i < str.length; i++) {
+        let k = str.charCodeAt(i);
+        h1 = Math.imul(h1 ^ k, 0x85ebca6b);
+        h2 = Math.imul(h2 ^ k, 0xc2b2ae35);
+      }
+      h1 = Math.imul(h1 ^ (h1 >>> 16), 0x85ebca6b) ^ Math.imul(h2 ^ (h2 >>> 13), 0xc2b2ae35);
+      h2 = Math.imul(h2 ^ (h2 >>> 16), 0x85ebca6b) ^ Math.imul(h1 ^ (h1 >>> 13), 0xc2b2ae35);
+      return (h1 >>> 0).toString(16).padStart(8, '0') + (h2 >>> 0).toString(16).padStart(8, '0');
+    }
+    function getAnalyseHost(platform,retry) {
+      const k_query = $('#txt-url').val().trim();
+      const mhash = murmurHash64(k_query);
+      return API_BASE + "/mates/en/analyze/ajax?retry=" + (retry ?? "") + "&platform=" + platform + "&mhash=" + mhash;
+    }
+
+    function analyze(retry){
+      if (a_busy) return;
+      a_busy = true;
+      $('#btn-submit').prop('disabled', true);
+      $("#result").empty();
+      $("#result-wait").show();
+      initProcess();
+
+      downloadTitle = null;
+      downloadUrl = {"mp3": {}, "mp4": {}};
+      count += 1;
+      d_busy = false;
+      status_stop = false;
+
+      const k_query = $('#txt-url').val().trim();
+      if (!k_query) {
+        $("#result-wait").hide();
+        a_busy = false;
+        $('#btn-submit').prop('disabled', false);
+        return;
+      }
+
+      let platform = "youtube";
+      if (k_query.includes("fb.watch") || k_query.includes("facebook.com")) platform = "facebook";
+      else if (k_query.includes("tiktok.com")) platform = "tiktok";
+      else if (k_query.includes("instagram.com")) platform = "instagram";
+      else if (k_query.includes("twitter.com") || k_query.includes("x.com") || k_query.includes("t.co")) platform = "twitter";
+      else if (k_query.includes("vimeo.com")) platform = "vimeo";
+
+      $.ajax({
+        type: "POST",
+        url: getAnalyseHost(platform,retry),
+        dataType: "json",
+        data: { url: k_query, ajax: 1, lang: lang, cftoken: cftoken },
+        success: function (rpdata) {
+          $("#result-wait").hide();
+          if (rpdata && rpdata.status === "success") {
+            $("#result").empty().append(rpdata.result);
+          } else if (rpdata && rpdata.result) {
+            $("#result").empty().append(rpdata.result);
+          } else {
+            $("#result").empty().append("<div class='alert alert-danger text-center'>Service is wrong, Please try again later</div>");
+          }
+          a_busy = false;
+          $('#btn-submit').prop('disabled', false);
+        },
+        error: function(){
+          $("#result-wait").hide();
+          $("#result").empty().append("<div class='alert alert-danger text-center'>Service is wrong, Please try again later</div>");
+          a_busy = false;
+          $('#btn-submit').prop('disabled', false);
+        }
+      });
+    }
+
+    function downloadStatus(url, title, id, ext, totalSize, note, format, videoUrl, videoCodec, countP) {
+      if (countP != count || status_stop) return;
+      if (!downloadUrl[ext][note]) {
+        $.ajax({
+          type: "POST",
+          url: getStatusHost(id),
+          headers: { "x-note": note, "platform":"youtube" },
+          data: { platform:"youtube", url, title, id, ext, note, format },
+          dataType: "json",
+          success: function (kdata) {
+            if (countP != count) return;
+            if (downloadUrl[ext][note]) { d_busy = false; return; }
+
+            if (kdata.status === "success") {
+              show_model(kdata, title, ext, note);
+              d_busy = false;
+              return;
+            }
+            if (kdata.status === "processing") {
+              // UI update
+              const type = kdata.type || "";
+              const percent = kdata.percent || "";
+              $("#result-wait-1,#result-wait-2,#result-wait-3,#result-wait-4,#result-wait-5,#result-wait-6,#result-wait-7").hide();
+              if (type === "downloading") $("#result-wait-1").show();
+              else if (type === "converting") $("#result-wait-2").show();
+              else if (type === "merging") $("#result-wait-3").show();
+              else if (type === "analyse_start") $("#result-wait-5").show();
+              else if (type === "retry_analyse_start") $("#result-wait-6").show();
+              else if (type === "download_start") $("#result-wait-7").show();
+
+              if (percent && percent.endsWith("%")) {
+                const p = parseInt(percent, 10);
+                const nowP = parseInt($("#progressbar1").attr("aria-valuenow") || "0", 10);
+                if (!Number.isNaN(p) && p > nowP) {
+                  $("#progressbar1").attr("aria-valuenow", p).css("width", p + "%").text(p + "%");
+                }
+              }
+
+              setTimeout(function () {
+                downloadStatus(url, title, id, ext, totalSize, note, format, videoUrl, videoCodec, countP);
+              }, 3000);
+              return;
+            }
+
+            showDownloadErrorModal("Some errors occurred during conversion, try again!");
+            d_busy = false;
+          },
+          error: function () {
+            showDownloadErrorModal("Some errors occurred during conversion, try again!");
+            d_busy = false;
+          }
+        });
+      }
+    }
+
+    function download(url, title, id, ext, totalSize, note, format, videoUrl, videoCodec, countP) {
+      if (countP !== undefined && countP !== count) return;
+      if (!downloadUrl[ext][note] && !d_busy) {
+        if (countP === undefined) countP = count;
+        d_busy = true;
+        status_stop = false;
+        $.ajax({
+          type: "POST",
+          url: getDownloadHost(id),
+          headers: { "x-note": note, "platform":"youtube" },
+          data: { platform:"youtube", url, title, id, ext, note, format, videoUrl, videoCodec, audioUrl: $("#audioUrl").val() },
+          dataType: "json",
+          beforeSend: function () {
+            $("#result-wait").show();
+            initProcess();
+            setTimeout(function () {
+              downloadStatus(url, title, id, ext, totalSize, note, format, videoUrl, videoCodec, countP);
+            }, 1500);
+          },
+          success: function (kdata) {
+            if (countP != count) return;
+            if (kdata.status === "success") {
+              show_model(kdata, title, ext, note);
+              d_busy = false;
+            } else if (kdata.status === "processing") {
+              // status poll continues in timer
+            } else {
+              status_stop = true;
+              d_busy = false;
+              showDownloadErrorModal("Some errors occurred during conversion, try again!");
+            }
+          },
+          error: function () {
+            if (countP == count) {
+              d_busy = false;
+              status_stop = true;
+              showDownloadErrorModal("Some errors occurred during conversion, try again!");
+            }
+          }
+        });
+      } else if (downloadUrl[ext][note]) {
+        $("#myModalLabel").text(downloadTitle || title);
+        $("#A_downloadUrl").attr("href", downloadUrl[ext][note]);
+        new bootstrap.Modal(document.getElementById('myModal')).show();
+      }
+    }
+
+    // UI events
+    $(document).ready(function(){
+      $("#txt-url").on("input", function(){
+        $("#clear-btn").toggle($("#txt-url").val().length > 0);
+      });
+      $("#clear-btn").on("click", function(){
+        $("#txt-url").val("");
+        $("#clear-btn").hide();
+      });
+      $('#txt-url').keypress(function (e) {
+        if (e.which == 13) { e.preventDefault(); analyze(); }
+      });
+      $('#btn-submit').click(function () { analyze(); });
+    });
+  </script>
+</body>
+</html>
+

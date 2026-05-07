@@ -1,0 +1,9 @@
+# Prevent Vercel from trying to run the backend (Render) files.
+# These files stay in GitHub for Render, but Vercel will not deploy them.
+server.js
+package.json
+Dockerfile
+.dockerignore
+jobs_tmp
+README.md
+

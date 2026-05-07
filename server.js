@@ -17,6 +17,14 @@ fs.mkdirSync(JOB_ROOT, { recursive: true });
 
 const jobs = new Map();
 
+// Prevent server crash on unexpected async errors (Render will otherwise return 503)
+process.on("unhandledRejection", (reason) => {
+  console.error("UnhandledRejection:", reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("UncaughtException:", err);
+});
+
 function baseUrl(req) {
   const proto = (req.headers["x-forwarded-proto"] || req.protocol || "http").toString();
   const host = req.headers["x-forwarded-host"] || req.headers.host;
@@ -40,6 +48,10 @@ function runYtDlpJson(url, extraArgs = []) {
     let err = "";
     p.stdout.on("data", (d) => (out += d.toString()));
     p.stderr.on("data", (d) => (err += d.toString()));
+    // IMPORTANT: if yt-dlp is missing, Node emits 'error' and will crash if we don't handle it
+    p.on("error", (e) => {
+      reject(new Error(`yt-dlp not available: ${e?.message || e}`));
+    });
     p.on("close", (code) => {
       if (code === 0) {
         try {
@@ -121,6 +133,12 @@ function startJob({ id, url, title, ext }) {
   p.stdout.on("data", (d) => d.toString().split(/\r?\n/).forEach(onLine));
   p.stderr.on("data", (d) => d.toString().split(/\r?\n/).forEach(onLine));
 
+  // IMPORTANT: handle spawn error to avoid server crash (missing yt-dlp/ffmpeg)
+  p.on("error", (e) => {
+    job.status = "error";
+    job.error = `yt-dlp not available: ${e?.message || e}`;
+  });
+
   p.on("close", (code) => {
     if (code !== 0) {
       job.status = "error";
@@ -152,6 +170,9 @@ app.get("/healthz", async (req, res) => {
     const p = spawn("yt-dlp", ["--version"], { stdio: ["ignore", "pipe", "pipe"] });
     let out = "";
     p.stdout.on("data", (d) => (out += d.toString()));
+    p.on("error", (e) => {
+      res.status(200).json({ ok: false, error: `yt-dlp not available: ${e?.message || e}` });
+    });
     p.on("close", (code) => {
       res.status(200).json({ ok: true, yt_dlp_version: out.trim(), code });
     });

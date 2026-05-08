@@ -69,12 +69,38 @@
 
         .input-wrapper { margin-bottom: 1.5rem; }
         .main-input {
-            width: 100%; background: rgba(0, 0, 0, 0.3);
-            border: 2px solid var(--glass-border); border-radius: 16px;
-            padding: 1.2rem 1.5rem; color: #fff; font-size: 1.1rem;
-            outline: none; transition: all 0.3s ease;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--glass-border);
+            padding: 1.2rem 1.5rem;
+            border-radius: 16px;
+            color: white;
+            font-size: 1.1rem;
+            outline: none;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
-        .main-input:focus { border-color: var(--accent-color); box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.2); }
+
+        .main-input:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.3), inset 0 0 10px rgba(99, 102, 241, 0.1);
+            background: rgba(99, 102, 241, 0.05);
+        }
+
+        .floating-icon {
+            position: absolute;
+            color: rgba(255,255,255,0.03);
+            pointer-events: none;
+            z-index: -1;
+            animation: float-around 20s infinite linear;
+        }
+
+        @keyframes float-around {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            33% { transform: translate(30px, 50px) rotate(120deg); }
+            66% { transform: translate(-20px, 80px) rotate(240deg); }
+            100% { transform: translate(0, 0) rotate(360deg); }
+        }
 
         .btn-download {
             width: 100%; background: var(--primary-gradient); border: none;
@@ -135,12 +161,27 @@
             .brand { font-size: 2.2rem; }
             .glass-card { padding: 1.5rem; }
         }
+        @keyframes ticker-animation {
+            0% { transform: translateX(100%); }
+            100% { transform: translateX(-100%); }
+        }
     </style>
 </head>
+
 <body>
     <div class="bg-blobs">
         <div class="blob blob-1"></div>
         <div class="blob blob-2"></div>
+        <div class="floating-icon" style="top: 10%; left: 5%; font-size: 3rem;">📸</div>
+        <div class="floating-icon" style="top: 25%; left: 85%; font-size: 2.5rem;">📱</div>
+        <div class="floating-icon" style="top: 70%; left: 15%; font-size: 4rem;">🎥</div>
+        <div class="floating-icon" style="top: 85%; left: 75%; font-size: 2rem;">🐦</div>
+        <div class="floating-icon" style="top: 45%; left: 50%; font-size: 5rem;">🎬</div>
+        <div class="floating-icon" style="top: 15%; left: 40%; font-size: 2.5rem;">🎵</div>
+        <div class="floating-icon" style="top: 60%; left: 90%; font-size: 3.5rem;">📍</div>
+        <div class="floating-icon" style="top: 80%; left: 30%; font-size: 2rem;">📺</div>
+        <div class="floating-icon" style="top: 20%; left: 20%; font-size: 3rem;">⚡</div>
+        <div class="floating-icon" style="top: 50%; left: 10%; font-size: 2.5rem;">💎</div>
     </div>
 
     <header>
@@ -148,9 +189,16 @@
         <p class="subtitle">Ultimate Multi-Platform Downloader</p>
     </header>
 
+    <div style="background: rgba(99, 102, 241, 0.1); border-bottom: 1px solid var(--glass-border); padding: 0.6rem 0; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-color); overflow: hidden; white-space: nowrap;">
+        <div style="display: inline-block; animation: ticker-animation 30s linear infinite;">
+            🔥 NEW: 8K Video Support for X (Twitter) &nbsp;&bull;&nbsp; 🚀 Instagram Reels Extraction Optimized &nbsp;&bull;&nbsp; 💎 No Watermark TikTok Downloads Active &nbsp;&bull;&nbsp; 🔒 100% Secure & Private &nbsp;&bull;&nbsp; ⚡ Server Speed: 1.2 GB/s
+        </div>
+    </div>
+
     <main class="container">
         <div id="view-downloader">
             <div class="glass-card">
+
             <div style="background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 12px; padding: 0.8rem; margin-bottom: 2rem; font-size: 0.85rem; display: flex; align-items: center; gap: 0.8rem;">
                 <span style="font-size: 1.2rem;">⚠️</span>
                 <p style="margin: 0; color: #a5b4fc;"><b>ANNOUNCEMENT:</b> Please read our <a href="javascript:void(0)" onclick="openSettings()" style="color: var(--accent-color); text-decoration: underline;">About Us</a> section before using this service.</p>
@@ -179,21 +227,67 @@
             <svg class="platform-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-1.13-.35-2.36-.39-3.41.23-.83.48-1.33 1.42-1.4 2.37-.1 1.46.88 2.83 2.32 3.08 1.13.23 2.37-.1 3.15-.94.72-.74 1.03-1.78 1.03-2.8 0-3.72.01-7.44.01-11.16z"/></svg>
             <!-- Twitter/X -->
             <svg class="platform-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z"/></svg>
+            <!-- Pinterest -->
+            <svg class="platform-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.162-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.966 1.406-5.966s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738.098.119.112.224.083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.261 7.929-7.261 4.162 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.631-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146 1.124.347 2.317.535 3.554.535 6.607 0 11.985-5.365 11.985-11.987C23.97 5.39 18.592 0 11.985 0z"/></svg>
             <!-- Twitch -->
             <svg class="platform-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M11.571 4.714h1.715v5.143H11.571zm4.715 0h1.714v5.143h-1.714zM4.714 0L1.714 3v16.286h5.143V24l4.286-4.714h3.428L22.286 12V0zm15.857 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/></svg>
+            <!-- Reddit -->
+            <svg class="platform-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M24 11.5c0-1.654-1.346-3-3-3-.627 0-1.209.191-1.697.517C17.53 7.728 15.302 7 12.842 7l1.039-4.89 3.391.719c.091.94 0 1.671.868 1.671 1.103 0 2-.897 2-2s-.897-2-2-2c-1.035 0-1.875.79-1.982 1.801l-3.861-.82c-.168-.035-.338.03-.435.176l-1.23 5.79C8.36 7.033 6.152 7.757 4.697 9.017 4.209 8.691 3.627 8.5 3 8.5c-1.654 0-3 1.346-3 3 0 1.325.863 2.45 2.053 2.841-.034.209-.053.424-.053.659 0 3.309 4.486 6 10 6s10-2.691 10-6c0-.235-.019-.45-.053-.659 1.19-.391 2.053-1.516 2.053-2.841zm-17.788 3c0-1.103.897-2 2-2s2 .897 2 2-.897 2-2 2-2-.897-2-2zm9.391 3.5c-1.129 1.129-3.411 1.602-4.103 1.602s-2.974-.473-4.103-1.602c-.226-.226-.226-.592 0-.817.226-.226.592-.226.817 0 .803.803 2.507 1.217 3.286 1.217s2.483-.414 3.286-1.217c.226-.226.591-.226.817 0 .227.225.227.591 0 .817zm.397-1.5c-1.103 0-2-.897-2-2s.897-2 2-2 2 .897 2 2-.897 2-2 2z"/></svg>
+            <!-- Threads -->
+            <svg class="platform-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12.01 0c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm4.59 16.5c-1.103 0-2-.897-2-2s-897-2 2-2 2 .897 2 2-.897 2-2 2zm-9.18 0c-1.103 0-2-.897-2-2s.897-2 2-2 2 .897 2 2-.897 2-2 2z"/></svg>
         </div>
 
+        <div style="margin-top: 5rem;">
+            <div style="display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap;">
+                <div style="background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); padding: 0.6rem 1.2rem; border-radius: 50px; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+                    <span>⚡</span> Fast
+                </div>
+                <div style="background: rgba(99, 102, 241, 0.1); color: #6366f1; border: 1px solid rgba(99, 102, 241, 0.2); padding: 0.6rem 1.2rem; border-radius: 50px; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+                    <span>🛡️</span> Safe
+                </div>
+                <div style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2); padding: 0.6rem 1.2rem; border-radius: 50px; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+                    <span>💎</span> Free
+                </div>
+                <div style="background: rgba(236, 72, 153, 0.1); color: #ec4899; border: 1px solid rgba(236, 72, 153, 0.2); padding: 0.6rem 1.2rem; border-radius: 50px; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+                    <span>🔥</span> No Ads
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top: 5rem;">
+            <h2 style="text-align: center; margin-bottom: 3rem; background: var(--primary-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">How it works</h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem;">
+                <div style="background: rgba(255,255,255,0.03); padding: 2rem; border-radius: 20px; border: 1px solid var(--glass-border); text-align: center;">
+                    <div style="width: 50px; height: 50px; background: var(--primary-gradient); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem auto; font-size: 1.5rem;">🔗</div>
+                    <h3 style="margin-bottom: 0.5rem; font-size: 1.1rem;">1. Copy Link</h3>
+                    <p style="font-size: 0.85rem; color: var(--text-muted);">Copy the video URL from Instagram, FB, or X.</p>
+                </div>
+                <div style="background: rgba(255,255,255,0.03); padding: 2rem; border-radius: 20px; border: 1px solid var(--glass-border); text-align: center;">
+                    <div style="width: 50px; height: 50px; background: var(--primary-gradient); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem auto; font-size: 1.5rem;">📥</div>
+                    <h3 style="margin-bottom: 0.5rem; font-size: 1.1rem;">2. Paste Link</h3>
+                    <p style="font-size: 0.85rem; color: var(--text-muted);">Paste the link into the box above and click Analyze.</p>
+                </div>
+                <div style="background: rgba(255,255,255,0.03); padding: 2rem; border-radius: 20px; border: 1px solid var(--glass-border); text-align: center;">
+                    <div style="width: 50px; height: 50px; background: var(--primary-gradient); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem auto; font-size: 1.5rem;">💾</div>
+                    <h3 style="margin-bottom: 0.5rem; font-size: 1.1rem;">3. Download</h3>
+                    <p style="font-size: 0.85rem; color: var(--text-muted);">Choose your quality and get your file instantly.</p>
+                </div>
+            </div>
+        </div>
 
         <div style="margin-top: 5rem; text-align: center; border-top: 1px solid var(--glass-border); padding-top: 2rem;">
+
             <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">Developed by <span style="color: var(--accent-color); font-weight: 700;">IMPOSTER TEAM</span></p>
             <div style="display: flex; justify-content: center; gap: 1rem; align-items: center;">
                 <a href="https://discord.gg/wSwmeZrtfk" target="_blank" style="background: #5865F2; color: white; text-decoration: none; padding: 0.8rem 1.5rem; border-radius: 12px; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; transition: transform 0.2s;">
                     <svg style="width: 20px; height: 20px;" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515a.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0a12.64 12.64 0 0 0-.617-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057a19.9 19.9 0 0 0 5.993 3.03a.078.078 0 0 0 .084-.028a14.09 14.09 0 0 0 1.226-1.994a.076.076 0 0 0-.041-.106a13.107 13.107 0 0 1-1.872-.892a.077.077 0 0 1-.008-.128a10.2 10.2 0 0 0 .372-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.372.292a.077.077 0 0 1-.006.127a12.299 12.299 0 0 1-1.873.892a.076.076 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028a19.839 19.839 0 0 0 6.002-3.03a.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.086 2.157 2.419c0 1.334-.947 2.419-2.157 2.419zm7.974 0c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.086 2.157 2.419c0 1.334-.946 2.419-2.157 2.419z"/></svg>
                     Join Discord
                 </a>
-                <button onclick="openSettings()" style="background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid var(--glass-border); padding: 0.8rem 1.2rem; border-radius: 12px; font-weight: 500; cursor: pointer;">
+                <button onclick="openSettings()" style="background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.1); padding: 0.8rem 1.2rem; border-radius: 12px; font-weight: 600; cursor: pointer; backdrop-filter: blur(10px); box-shadow: 0 4px 15px rgba(0,0,0,0.2); transition: all 0.3s; display: flex; align-items: center; gap: 0.5rem;" onmouseover="this.style.background='rgba(255,255,255,0.1)'; this.style.transform='translateY(-2px)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'; this.style.transform='translateY(0)'">
+                    <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
                     About Us
                 </button>
+
                 <a href="/status" style="background: rgba(16, 185, 129, 0.05); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); padding: 0.8rem 1.2rem; border-radius: 12px; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 0.5rem; transition: all 0.3s;">
                     <div style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; box-shadow: 0 0 8px #10b981;"></div>
                     System Status
@@ -203,46 +297,73 @@
             </div>
         </div>
 
-        <div id="view-about" style="display: none; width: 100%; max-width: 900px; margin: 0 auto;">
-            <div class="glass-card" style="text-align: left;">
-                <h2 style="margin-bottom: 2rem; background: var(--primary-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 2.2rem;">About IMPOSTER</h2>
+        <div id="view-about" style="display: none; width: 100%; max-width: 1000px; margin: 0 auto;">
+            <div class="glass-card" style="text-align: left; padding: 3rem;">
+                <div style="text-align: center; margin-bottom: 4rem;">
+                    <h2 style="font-size: 3rem; margin-bottom: 1rem; background: var(--primary-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">About IMPOSTER</h2>
+                    <p style="color: var(--text-muted); font-size: 1.1rem; max-width: 600px; margin: 0 auto;">The next generation of high-fidelity media extraction. Fast, secure, and always free.</p>
+                </div>
                 
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
-                    <div style="background: rgba(255,255,255,0.03); padding: 1.5rem; border-radius: 16px; border: 1px solid var(--glass-border);">
-                        <p style="font-weight: 700; color: var(--accent-color); margin-bottom: 1rem;">System Info</p>
-                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">Version: 2.1.0-STABLE</p>
-                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">Engine: yt-dlp Core</p>
-                        <p style="font-size: 0.85rem; color: var(--text-muted);">Status: Multi-Platform Active</p>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem; margin-bottom: 3rem;">
+                    <div style="background: rgba(255,255,255,0.02); padding: 2rem; border-radius: 24px; border: 1px solid var(--glass-border); position: relative; overflow: hidden;">
+                        <div style="position: absolute; top: -20px; right: -20px; font-size: 5rem; opacity: 0.05;">🚀</div>
+                        <h3 style="color: var(--accent-color); margin-bottom: 1rem; font-size: 1.3rem;">Our Mission</h3>
+                        <p style="font-size: 0.95rem; line-height: 1.7; color: var(--text-muted);">To provide a clean, ad-free environment for users to archive their favorite social media moments in the highest possible resolution available on the web.</p>
                     </div>
-                    <div style="background: rgba(255,255,255,0.03); padding: 1.5rem; border-radius: 16px; border: 1px solid var(--glass-border);">
-                        <p style="font-weight: 700; color: var(--accent-color); margin-bottom: 1rem;">Privacy Policy</p>
-                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">• No logs stored</p>
-                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">• Auto-delete after download</p>
-                        <p style="font-size: 0.85rem; color: var(--text-muted);">• No user tracking</p>
+                    <div style="background: rgba(255,255,255,0.02); padding: 2rem; border-radius: 24px; border: 1px solid var(--glass-border); position: relative; overflow: hidden;">
+                        <div style="position: absolute; top: -20px; right: -20px; font-size: 5rem; opacity: 0.05;">🛡️</div>
+                        <h3 style="color: #10b981; margin-bottom: 1rem; font-size: 1.3rem;">Privacy First</h3>
+                        <p style="font-size: 0.95rem; line-height: 1.7; color: var(--text-muted);">We believe in total anonymity. We do not store logs, track IPs, or require account creation. Your data belongs to you, and your activity is 100% private.</p>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.02); padding: 2rem; border-radius: 24px; border: 1px solid var(--glass-border); position: relative; overflow: hidden;">
+                        <div style="position: absolute; top: -20px; right: -20px; font-size: 5rem; opacity: 0.05;">💎</div>
+                        <h3 style="color: #fbbf24; margin-bottom: 1rem; font-size: 1.3rem;">Ultra Quality</h3>
+                        <p style="font-size: 0.95rem; line-height: 1.7; color: var(--text-muted);">Powered by our custom Max-Bitrate engine, we bypass standard quality caps to deliver 4K and 8K video where others fail.</p>
                     </div>
                 </div>
 
-                <div style="margin-bottom: 2rem;">
-                    <p style="font-weight: 700; color: var(--accent-color); margin-bottom: 1rem;">Legal Policy</p>
-                    <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.6;">IMPOSTER is for personal use only. We are not affiliated with YouTube, Meta, or TikTok. Users are responsible for complying with the copyright terms of the original content creators.</p>
-                </div>
-
-                <div style="margin-bottom: 2rem;">
-                    <p style="font-weight: 700; color: var(--accent-color); margin-bottom: 1rem;">Send Feedback</p>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                        <input type="text" id="fb-name" placeholder="Name" style="background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); color: white; padding: 0.8rem; border-radius: 10px; outline: none;">
-                        <input type="email" id="fb-email" placeholder="Email" style="background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); color: white; padding: 0.8rem; border-radius: 10px; outline: none;">
+                <div style="background: rgba(99, 102, 241, 0.05); padding: 2rem; border-radius: 24px; border: 1px solid rgba(99, 102, 241, 0.2); margin-bottom: 3rem;">
+                    <h3 style="color: var(--accent-color); margin-bottom: 1rem;">System Core Info</h3>
+                    <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
+                        <div>
+                            <p style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Version</p>
+                            <p style="font-weight: 600;">2.1.0 (Enterprise)</p>
+                        </div>
+                        <div>
+                            <p style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Status</p>
+                            <p style="font-weight: 600; color: #10b981;">Operational</p>
+                        </div>
+                        <div>
+                            <p style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Nodes</p>
+                            <p style="font-weight: 600;">6 Global Active</p>
+                        </div>
                     </div>
-                    <textarea id="fb-details" placeholder="Message..." style="width: 100%; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); color: white; padding: 0.8rem; border-radius: 10px; margin-bottom: 1rem; outline: none; height: 80px; resize: none;"></textarea>
-                    <button onclick="sendFeedback()" id="btn-feedback" class="modal-btn" style="width: 100%; margin: 0;">Submit Feedback</button>
                 </div>
 
-                <div style="text-align: center; margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--glass-border);">
-                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">&copy; 2026 IMPOSTER TEAM. All rights reserved.</p>
-                    <button onclick="closeSettings()" class="modal-btn" style="background: var(--primary-gradient); width: auto; padding: 0.8rem 3rem;">Back to Home</button>
+                <div style="margin-bottom: 3rem;">
+                    <h3 style="color: #ec4899; margin-bottom: 1.5rem;">Legal & Terms</h3>
+                    <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.8; padding: 1.5rem; background: rgba(0,0,0,0.2); border-radius: 16px; border-left: 4px solid #ec4899;">
+                        IMPOSTER is a search and extraction tool for publicly available content. We are not affiliated with Meta, TikTok, or X. Users are strictly advised to use this service for personal, non-commercial archiving only. By using IMPOSTER, you agree to respect the copyright and intellectual property rights of the content creators.
+                    </p>
+                </div>
+
+                <div>
+                    <h3 style="color: var(--accent-color); margin-bottom: 1.5rem;">Share Feedback</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+                        <input type="text" id="fb-name" placeholder="Full Name" style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); color: white; padding: 1.2rem; border-radius: 16px; outline: none; transition: 0.3s;" onfocus="this.style.borderColor='var(--accent-color)'">
+                        <input type="email" id="fb-email" placeholder="Email Address" style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); color: white; padding: 1.2rem; border-radius: 16px; outline: none; transition: 0.3s;" onfocus="this.style.borderColor='var(--accent-color)'">
+                    </div>
+                    <textarea id="fb-details" placeholder="Describe your experience or report a bug..." style="width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); color: white; padding: 1.2rem; border-radius: 16px; margin-bottom: 1.5rem; outline: none; height: 120px; resize: none; transition: 0.3s;" onfocus="this.style.borderColor='var(--accent-color)'"></textarea>
+                    <button onclick="sendFeedback()" id="btn-feedback" class="modal-btn" style="width: 100%; margin: 0; padding: 1.5rem; font-size: 1.1rem;">Deliver Feedback</button>
+                </div>
+
+                <div style="text-align: center; margin-top: 4rem; padding-top: 2rem; border-top: 1px solid var(--glass-border);">
+                    <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 2rem;">&copy; 2026 IMPOSTER ARCHIVE TEAM. All rights reserved.</p>
+                    <button onclick="closeSettings()" class="modal-btn" style="background: var(--primary-gradient); width: auto; padding: 1rem 4rem; font-size: 1.1rem;">Return to Hub</button>
                 </div>
             </div>
         </div>
+
     </main>
 
     <div id="download-modal" class="modal-overlay">

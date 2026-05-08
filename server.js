@@ -78,11 +78,12 @@ function runYtDlpJson(url, extraArgs = []) {
       "--skip-download",
       "--no-check-certificate",
       "--geo-bypass",
-      "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+      "--extractor-args", "youtube:player_client=web,ios;generic:user_agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
       ...ytDlpCookieArgs(url),
       ...extraArgs,
       url
     ];
+
 
     const p = spawn("yt-dlp", args, { stdio: ["ignore", "pipe", "pipe"] });
     let out = "";
@@ -236,23 +237,23 @@ function startJob({ id, url, title, ext, format }) {
   }
 
   // Reverting to the original high-quality logic that produced larger file sizes
-  let selected = (format && String(format).trim()) ? String(format).trim() : "bestvideo+bestaudio/best";
-  if (selected === "best") selected = "bestvideo+bestaudio/best";
-
+  let selected = (format && String(format).trim() && format !== "best") ? String(format).trim() : "bestvideo+bestaudio/best";
+  
   const outExt = String(ext || "mp4").toLowerCase();
   const attempt = [
     url,
     "--no-playlist",
     "--no-check-certificate",
     "--geo-bypass",
-    "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
     ...ytDlpCookieArgs(url),
     "-f", selected,
-    "--merge-output-format", outExt,
+    // For 4K/8K, we prefer the original best container (mkv/webm) if mp4 is limiting quality
+    "--format-sort", "res,quality,size,br,vbr,abr",
+    "--merge-output-format", (selected.includes("2160") || selected.includes("4320") || selected.includes("bestvideo")) ? "mkv" : outExt,
     "-o", `${outBase}.%(ext)s`
   ];
   
-  console.log(`[EXEC] yt-dlp ${selected} -> ${outExt}`);
+  console.log(`[EXEC] yt-dlp MAX_BITRATE job started: ${selected}`);
   runAttempt(attempt);
 }
 
@@ -353,7 +354,14 @@ app.post("/mates/en/analyze/ajax", async (req, res) => {
       return res.json({ status: "unavailable", result: "<div class='alert alert-danger'>Empty URL</div>" });
     }
 
-    // YouTube support enabled (removed restriction)
+    // Check for YouTube and block it
+    const isYouTube = url.includes("youtube.com") || url.includes("youtu.be");
+    if (isYouTube) {
+      return res.json({ 
+        status: "unavailable", 
+        result: "<div class='alert alert-warning text-center'><b>YouTube is not supported.</b><br>Please use this tool for Instagram, Facebook, TikTok, Twitter, and other social media.</div>" 
+      });
+    }
     
     let info;
     info = await runYtDlpJson(url);
@@ -392,7 +400,13 @@ app.post("/mates/en/analyze/ajax", async (req, res) => {
         };
       })
       .filter((f) => f.format_id && f.ext)
-      .sort((a, b) => (b.height - a.height) || (b.filesize - a.filesize))
+      .sort((a, b) => {
+        const ha = parseInt(a.height) || 0;
+        const hb = parseInt(b.height) || 0;
+        if (hb !== ha) return hb - ha;
+        return (b.filesize || 0) - (a.filesize || 0);
+      })
+
       .slice(0, 50);
 
     // If no formats found but there is a direct URL (common for images)

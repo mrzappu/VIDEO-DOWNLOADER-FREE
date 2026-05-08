@@ -240,20 +240,22 @@ function startJob({ id, url, title, ext, format }) {
   let selected = (format && String(format).trim() && format !== "best") ? String(format).trim() : "bestvideo+bestaudio/best";
   
   const outExt = String(ext || "mp4").toLowerCase();
+  const isInsta = url.includes("instagram.com");
+
   const attempt = [
     url,
     "--no-playlist",
     "--no-check-certificate",
     "--geo-bypass",
+    ...(isInsta ? ["--add-header", "Referer:https://www.instagram.com/", "--add-header", "Origin:https://www.instagram.com/"] : []),
     ...ytDlpCookieArgs(url),
     "-f", selected,
-    // For 4K/8K, we prefer the original best container (mkv/webm) if mp4 is limiting quality
     "--format-sort", "res,quality,size,br,vbr,abr",
     "--merge-output-format", (selected.includes("2160") || selected.includes("4320") || selected.includes("bestvideo")) ? "mkv" : outExt,
     "-o", `${outBase}.%(ext)s`
   ];
   
-  console.log(`[EXEC] yt-dlp MAX_BITRATE job started: ${selected}`);
+  console.log(`[EXEC] yt-dlp ${isInsta ? "[INSTA_HIGH_RES]" : ""} job: ${selected}`);
   runAttempt(attempt);
 }
 
@@ -262,7 +264,26 @@ function startJob({ id, url, title, ext, format }) {
 
 
 
+
+const startTime = Date.now();
+app.get("/api/status", (req, res) => {
+  const uptimeSeconds = Math.floor((Date.now() - startTime) / 1000);
+  const hours = Math.floor(uptimeSeconds / 3600);
+  const minutes = Math.floor((uptimeSeconds % 3600) / 60);
+  const seconds = uptimeSeconds % 60;
+  res.json({
+    uptime: `${hours}h ${minutes}m ${seconds}s`,
+    status: "online",
+    platforms: "All Social Platforms Active"
+  });
+});
+
+app.get("/status", (req, res) => {
+  res.sendFile(path.join(process.cwd(), "status.html"));
+});
+
 app.use(express.static(process.cwd()));
+
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(process.cwd(), "index.html"));

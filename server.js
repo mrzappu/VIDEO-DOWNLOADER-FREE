@@ -235,10 +235,10 @@ function startJob({ id, url, title, ext, format }) {
     return;
   }
 
-  // Generic video download:
-  // - if a specific format selector is provided from UI, use it
-  // - otherwise use best
-  const selected = (format && String(format).trim()) ? String(format).trim() : "best";
+  // Generic video download logic:
+  // If 'best' is selected, we use the most aggressive selector for 4K/8K
+  let selected = (format && String(format).trim() && format !== "best") ? String(format).trim() : "bestvideo+bestaudio/best";
+  
   const outExt = String(ext || "mp4").toLowerCase();
   const attempt = [
     url,
@@ -247,14 +247,20 @@ function startJob({ id, url, title, ext, format }) {
     "--geo-bypass",
     "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
     ...ytDlpCookieArgs(url),
-    "-f",
-    selected,
-    ...(outExt ? ["--merge-output-format", outExt] : []),
-    "-o",
-    `${outBase}.%(ext)s`
+    "-f", selected,
+    "--merge-output-format", outExt,
+    "--embed-metadata",
+    "--prefer-free-formats",
+    "-o", `${outBase}.%(ext)s`
   ];
+  
+  console.log(`[EXEC] yt-dlp HIGH QUALITY job started: ${selected}`);
   runAttempt(attempt);
 }
+
+
+
+
 
 app.use(express.static(process.cwd()));
 
@@ -370,8 +376,9 @@ app.post("/mates/en/analyze/ajax", async (req, res) => {
         const hasVideo = f.vcodec && f.vcodec !== "none";
         const hasAudio = f.acodec && f.acodec !== "none";
         
-        // Only append bestaudio if it's a video-only format
+        // Only append bestaudio if it's a video-only format and not an image
         const selector = (hasVideo && !hasAudio && !isImage) ? `${f.format_id}+bestaudio/best` : f.format_id;
+
         
         return {
           format_id: selector,

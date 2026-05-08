@@ -328,12 +328,13 @@
             
             let formatsHtml = formats.map(f => {
                 const isImage = ["jpg", "png", "webp"].includes(f.ext);
-                const is4K = f.height >= 2160 || f.resolution.includes("2160") || f.resolution.includes("4k");
+                const is4K = f.height >= 2160 || f.resolution.includes("2160") || f.resolution.includes("4k") || f.resolution.includes("8k");
                 const audioLabel = isImage ? "" : (f.hasAudio ? "Video + Sound" : "Video Only");
-                const badge = is4K ? '<span style="position:absolute; top:8px; right:8px; background: #fbbf24; color: #000; font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; font-weight: 800;">4K</span>' : "";
+                const badge = is4K ? '<span style="position:absolute; top:8px; right:8px; background: linear-gradient(90deg, #fbbf24, #f59e0b); color: #000; font-size: 0.6rem; padding: 2px 8px; border-radius: 4px; font-weight: 900; box-shadow: 0 0 10px rgba(251, 191, 36, 0.5);">ULTRA HD</span>' : "";
+                const glow = is4K ? 'border: 1px solid #fbbf24; background: rgba(251, 191, 36, 0.05);' : "";
                 
                 return `
-                    <div class="format-item" style="position:relative;" onclick="startDownload('${url}', '${title.replace(/'/g, "\\'")}', '${id}', '${f.ext}', '${f.format_id}')">
+                    <div class="format-item" style="position:relative; ${glow}" onclick="startDownload('${url}', '${title.replace(/'/g, "\\'")}', '${id}', '${f.ext}', '${f.format_id}')">
                         ${badge}
                         <span class="format-res">${f.resolution}</span>
                         <span class="format-ext">${f.ext} ${f.note ? `(${f.note})` : ""}</span>
@@ -345,12 +346,13 @@
             }).join("");
 
             if (formats.length === 0) {
-                formatsHtml = `<div class="format-item" onclick="startDownload('${url}', '${title.replace(/'/g, "\\'")}', '${id}', 'mp4', 'best')">
-                    <span class="format-res">Highest Quality</span>
-                    <span class="format-ext">MP4</span>
-                    <span class="format-size">Direct</span>
+                formatsHtml = `<div class="format-item" style="border: 1px solid var(--accent-color); background: rgba(99, 102, 241, 0.1);" onclick="startDownload('${url}', '${title.replace(/'/g, "\\'")}', '${id}', 'mp4', 'best')">
+                    <span class="format-res" style="color: var(--accent-color);">BEST QUALITY (4K/8K)</span>
+                    <span class="format-ext">MP4 / MKV</span>
+                    <span class="format-size">Auto-Select Max</span>
                 </div>`;
             }
+
 
             // Audio option
             formatsHtml += `<div class="format-item" style="border-color: #f472b6;" onclick="startDownload('${url}', '${title.replace(/'/g, "\\'")}', '${id}', 'mp3', 'bestaudio')">

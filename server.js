@@ -235,10 +235,10 @@ function startJob({ id, url, title, ext, format }) {
     return;
   }
 
-  // Generic video download logic:
-  // If 'best' is selected, we use the most aggressive selector for 4K/8K
-  let selected = (format && String(format).trim() && format !== "best") ? String(format).trim() : "bestvideo+bestaudio/best";
-  
+  // Reverting to the original high-quality logic that produced larger file sizes
+  let selected = (format && String(format).trim()) ? String(format).trim() : "bestvideo+bestaudio/best";
+  if (selected === "best") selected = "bestvideo+bestaudio/best";
+
   const outExt = String(ext || "mp4").toLowerCase();
   const attempt = [
     url,
@@ -249,14 +249,13 @@ function startJob({ id, url, title, ext, format }) {
     ...ytDlpCookieArgs(url),
     "-f", selected,
     "--merge-output-format", outExt,
-    "--embed-metadata",
-    "--prefer-free-formats",
     "-o", `${outBase}.%(ext)s`
   ];
   
-  console.log(`[EXEC] yt-dlp HIGH QUALITY job started: ${selected}`);
+  console.log(`[EXEC] yt-dlp ${selected} -> ${outExt}`);
   runAttempt(attempt);
 }
+
 
 
 
